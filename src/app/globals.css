@@ -1,0 +1,1288 @@
+@import "tailwindcss";
+
+/* ─── PHASE 11: Dark RPG Premium Design System ─── */
+:root {
+    /* ── Dark Forge Background Layers ── */
+    --bg-void: #060608;
+    --bg-base: #0d0d12;
+    --bg-surface: #101016;
+    --bg-elevated: #13131a;
+    --bg-raised: #18181f;
+    --bg-overlay: #1a1a24;
+    --bg-glass: rgba(255, 255, 255, 0.04);
+
+    /* Gold — primary accent: EXP, level, streak */
+    --gold: #f5a623;
+    --gold-bright: #ffbf4d;
+    --gold-muted: #a0681a;
+    --gold-dim: #3d2a0a;
+    --gold-glow: rgba(245, 166, 35, 0.25);
+
+    /* Cyan — speak, actions */
+    --cyan: #00d4ff;
+    --cyan-bright: #5de5ff;
+    --cyan-muted: #0099bd;
+    --cyan-dim: #003344;
+    --cyan-glow: rgba(0, 212, 255, 0.2);
+
+    /* Purple — rare, milestone */
+    --violet: #7c3aed;
+    --violet-bright: #9b5ff5;
+    --violet-muted: #5a28b0;
+    --violet-dim: #1e0a3c;
+    --violet-glow: rgba(124, 58, 237, 0.2);
+
+    /* Emerald — success, done */
+    --emerald: #10b981;
+    --emerald-bright: #34d399;
+    --emerald-muted: #059669;
+    --emerald-dim: #052e16;
+
+    /* Ruby — danger, error */
+    --ruby: #ef4444;
+    --ruby-bright: #f87171;
+    --ruby-muted: #dc2626;
+    --ruby-dim: #300a0a;
+
+    /* Amber — hard rating */
+    --amber: #f59e0b;
+    --amber-muted: #d97706;
+    --amber-dim: #2d1a00;
+
+    /* Text */
+    --text-primary: #f0f0f8;
+    --text-secondary: #8888a0;
+    --text-muted: #4a4a60;
+    --text-disabled: #2a2a38;
+
+    /* Borders */
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-subtler: rgba(255, 255, 255, 0.04);
+    --border-medium: rgba(255, 255, 255, 0.12);
+    --border-strong: rgba(255, 255, 255, 0.2);
+    --border-gold: rgba(245, 166, 35, 0.3);
+    --bg-subtle: rgba(255, 255, 255, 0.04);
+
+    /* Shadows */
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle);
+    --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.6);
+    --shadow-gold: 0 0 20px var(--gold-glow), 0 0 60px rgba(245, 166, 35, 0.1);
+    --shadow-cyan: 0 0 20px var(--cyan-glow);
+
+    /* Type scale */
+    --text-xs: 11px;
+    --text-sm: 13px;
+    --text-base: 15px;
+    --text-lg: 17px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-3xl: 30px;
+    --text-4xl: 36px;
+
+    /* Fonts */
+    --font-display: "Sora", "Outfit", sans-serif;
+    --font-body: "Inter", sans-serif;
+    --font-sans: "Inter", sans-serif; /* alias for --font-body */
+    --font-mono: "JetBrains Mono", monospace;
+
+    /* Spring easing — ProMotion optimized */
+    --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Light Mode Theme ─── */
+[data-theme="light"] {
+    /* Backgrounds — warm white layers with depth */
+    --bg-void: #f0f2f8; /* outermost, slightly cool */
+    --bg-base: #f5f7fc; /* page background */
+    --bg-surface: #ffffff; /* cards, panels */
+    --bg-elevated: #ffffff; /* raised cards */
+    --bg-raised: #eef1f8; /* inner elements, inputs */
+    --bg-overlay: rgba(255, 255, 255, 0.95);
+    --bg-glass: rgba(255, 255, 255, 0.75);
+
+    /* Text — deep readable, not pure black */
+    --text-primary: #0f172a; /* headings, primary copy */
+    --text-secondary: #334155; /* body text */
+    --text-muted: #64748b; /* labels, hints */
+    --text-disabled: #94a3b8; /* truly disabled */
+
+    /* Brand colors — deeper/richer for light bg readability */
+    --gold: #b45309; /* amber 700 — readable on white */
+    --gold-bright: #92400e;
+    --gold-muted: #d97706;
+    --gold-dim: #fef3c7; /* light tint bg for gold badges */
+    --gold-glow: rgba(180, 83, 9, 0.18);
+
+    --cyan: #0369a1; /* sky 700 */
+    --cyan-bright: #0284c7;
+    --cyan-muted: #0891b2;
+    --cyan-dim: #e0f2fe;
+    --cyan-glow: rgba(3, 105, 161, 0.15);
+
+    --violet: #6d28d9; /* violet 700 */
+    --violet-bright: #5b21b6;
+    --violet-muted: #7c3aed;
+    --violet-dim: #ede9fe;
+    --violet-glow: rgba(109, 40, 217, 0.12);
+
+    --emerald: #047857; /* emerald 700 */
+    --emerald-bright: #065f46;
+    --emerald-muted: #059669;
+    --emerald-dim: #d1fae5;
+
+    --ruby: #b91c1c; /* red 700 */
+    --ruby-bright: #991b1b;
+    --ruby-muted: #dc2626;
+    --ruby-dim: #fee2e2;
+
+    --amber: #92400e;
+    --amber-muted: #b45309;
+    --amber-dim: #fef3c7;
+
+    /* Borders — dark-on-light, subtle but visible */
+    --border-subtle: rgba(0, 0, 0, 0.07);
+    --border-subtler: rgba(0, 0, 0, 0.04);
+    --border-medium: rgba(0, 0, 0, 0.13);
+    --border-strong: rgba(0, 0, 0, 0.22);
+    --border-gold: rgba(180, 83, 9, 0.3);
+
+    /* Shadows — lighter, softer */
+    --shadow-card:
+        0 1px 4px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border-subtle);
+    --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.1);
+    --shadow-gold: 0 0 16px var(--gold-glow);
+    --shadow-cyan: 0 0 16px var(--cyan-glow);
+
+    --bg-subtle: rgba(0, 0, 0, 0.03);
+}
+
+/* ─── Light Mode Component Overrides ─── */
+
+/* Base background */
+[data-theme="light"] body {
+    background-color: var(--bg-base);
+}
+
+/* App shell bg */
+[data-theme="light"] .app-shell {
+    background: var(--bg-base);
+}
+
+/* Mesh bg overlay — turn off glow on light */
+[data-theme="light"] body::before {
+    opacity: 0.004 !important;
+}
+
+/* ─── Bottom Nav (light) ─── */
+[data-theme="light"] .bottom-nav-pill {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.12),
+        0 1px 4px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .bottom-nav {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* ─── Cards (light) ─── */
+[data-theme="light"] .glass-card {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow:
+        0 2px 12px rgba(0, 0, 0, 0.07),
+        0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .dark-card {
+    background: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ─── More Drawer (light) ─── */
+[data-theme="light"] .more-drawer {
+    background: rgba(245, 247, 252, 0.97) !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ─── Buttons (light) ─── */
+[data-theme="light"] .btn-primary {
+    background: linear-gradient(
+        135deg,
+        var(--gold-muted),
+        var(--gold)
+    ) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 12px var(--gold-glow) !important;
+}
+
+[data-theme="light"] .btn-secondary {
+    background: #ffffff !important;
+    border-color: var(--border-medium) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* ─── Skeleton (light) ─── */
+[data-theme="light"] .skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.06) 25%,
+        rgba(0, 0, 0, 0.1) 50%,
+        rgba(0, 0, 0, 0.06) 75%
+    ) !important;
+    background-size: 200% 100% !important;
+}
+
+/* ─── Hero card mesh (light) ─── */
+[data-theme="light"] .hero-mesh-bg {
+    background: linear-gradient(
+        135deg,
+        rgba(180, 83, 9, 0.08) 0%,
+        rgba(255, 255, 255, 0) 50%,
+        rgba(3, 105, 161, 0.06) 100%
+    ) !important;
+    border-color: rgba(180, 83, 9, 0.2) !important;
+}
+
+/* ─── EXP bar (light) ─── */
+[data-theme="light"] .exp-bar-container {
+    background: rgba(0, 0, 0, 0.08) !important;
+    border-color: transparent !important;
+}
+
+/* ─── Progress ring track (light) ─── */
+[data-theme="light"] circle[stroke="var(--bg-raised)"] {
+    stroke: #e2e8f0 !important;
+}
+
+/* ─── Inputs (light) ─── */
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+    background: #ffffff !important;
+    border-color: var(--border-medium) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ─── Icon glow (softer on light) ─── */
+[data-theme="light"] .icon-glow-gold svg {
+    filter: drop-shadow(0 0 4px rgba(180, 83, 9, 0.35)) !important;
+}
+
+[data-theme="light"] .icon-glow-cyan svg {
+    filter: drop-shadow(0 0 4px rgba(3, 105, 161, 0.3)) !important;
+}
+
+/* ─── Base ─── */
+@layer base {
+    * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        box-sizing: border-box;
+    }
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
+    body {
+        background-color: var(--bg-base);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        margin: 0;
+        padding: 0;
+        overscroll-behavior: none;
+        overflow: hidden;
+        /* --app-height is set by visualViewport script, fallbacks for SSR */
+        height: 100dvh;
+        height: -webkit-fill-available;
+        height: var(--app-height, 100dvh);
+        /* Subtle grain texture */
+        position: relative;
+    }
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-display);
+    }
+}
+
+/* ─── Noise texture overlay ─── */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.018;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
+}
+
+/* ─── App Shell ─── */
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 430px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-base);
+    z-index: 1;
+}
+
+.app-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding: 0 16px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
+    padding-bottom: calc(114px + env(safe-area-inset-bottom, 0px));
+}
+
+.app-content::-webkit-scrollbar {
+    display: none;
+}
+.app-content {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* ─── Bottom Navigation — Floating Pill ─── */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    z-index: 100;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+    pointer-events: none;
+}
+
+.bottom-nav-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 4px;
+    background: rgba(13, 13, 18, 0.88);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--border-medium);
+    border-radius: 28px;
+    padding: 8px 12px;
+    box-shadow:
+        0 -2px 30px rgba(0, 0, 0, 0.4),
+        0 4px 20px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
+    max-width: 380px;
+    width: calc(100% - 32px);
+}
+
+[data-theme="light"] .bottom-nav-pill {
+    background: rgba(240, 244, 250, 0.94);
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.12);
+}
+
+.nav-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 16px;
+    text-decoration: none;
+    color: var(--text-muted);
+    transition:
+        color 0.2s var(--ease-spring),
+        transform 0.15s var(--ease-spring);
+    min-width: 52px;
+    position: relative;
+    cursor: pointer;
+    background: none;
+    border: none;
+    touch-action: manipulation;
+    will-change: transform;
+}
+
+.nav-tab:active {
+    transform: scale(0.88);
+}
+
+.nav-tab-active {
+    color: var(--gold) !important;
+}
+
+.nav-tab-icon {
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        filter 0.2s var(--ease-spring),
+        transform 0.2s var(--ease-spring);
+    will-change: transform, filter;
+}
+
+.nav-tab-active .nav-tab-icon {
+    filter: drop-shadow(0 0 8px var(--gold-glow));
+    transform: scale(1.1);
+}
+
+.nav-tab-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    font-family: var(--font-body);
+}
+
+/* Gold dot indicator */
+.nav-tab-dot {
+    position: absolute;
+    bottom: 2px;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 6px var(--gold-glow);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.nav-tab-active .nav-tab-dot {
+    opacity: 1;
+}
+
+/* ─── More Drawer ─── */
+.more-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.more-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease;
+}
+
+.more-drawer {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 440px;
+    background: var(--bg-elevated);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--border-medium);
+    border-bottom: none;
+    border-radius: 28px 28px 0 0;
+    z-index: 1001;
+    padding: 12px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .more-drawer {
+    background: rgba(240, 244, 250, 0.95);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.more-drawer-handle {
+    width: 40px;
+    height: 4px;
+    border-radius: 99px;
+    background: var(--border-strong);
+    margin: 0 auto 20px;
+}
+
+/* ─── Card System ─── */
+.glass {
+    background: var(--bg-glass);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid var(--border-subtle);
+}
+
+.glass-card {
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+}
+
+/* Dark Forge unified card */
+.dark-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+}
+
+.glass-card-hover {
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+    transition: all 0.2s var(--ease-spring);
+    cursor: pointer;
+    touch-action: manipulation;
+    will-change: transform;
+}
+
+.glass-card-hover:active {
+    border-color: var(--border-gold);
+    background: var(--bg-elevated);
+    transform: scale(0.98);
+    box-shadow:
+        var(--shadow-card),
+        0 0 0 1px var(--border-gold);
+}
+
+/* Icon glow utilities */
+.icon-glow-gold svg,
+.icon-glow-gold {
+    filter: drop-shadow(0 0 6px var(--gold-glow));
+}
+.icon-glow-cyan svg,
+.icon-glow-cyan {
+    filter: drop-shadow(0 0 6px var(--cyan-glow));
+}
+.icon-glow-violet svg,
+.icon-glow-violet {
+    filter: drop-shadow(0 0 6px var(--violet-glow));
+}
+
+/* ─── Glow Utilities ─── */
+.glow-gold {
+    box-shadow:
+        0 0 20px rgba(245, 200, 66, 0.15),
+        0 0 60px rgba(245, 200, 66, 0.05);
+}
+.glow-gold-strong {
+    box-shadow:
+        0 0 16px rgba(245, 200, 66, 0.4),
+        0 0 40px rgba(245, 200, 66, 0.15);
+}
+.glow-cyan {
+    box-shadow:
+        0 0 20px rgba(34, 211, 238, 0.15),
+        0 0 60px rgba(34, 211, 238, 0.05);
+}
+.glow-text-gold {
+    text-shadow:
+        0 0 20px rgba(245, 200, 66, 0.5),
+        0 0 40px rgba(245, 200, 66, 0.2);
+}
+
+/* ─── Gold EXP Bar with Shimmer ─── */
+.exp-bar-container {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-raised);
+    border-radius: 99px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.exp-bar-fill {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        var(--gold-muted) 0%,
+        var(--gold) 35%,
+        var(--gold-bright) 50%,
+        var(--gold) 65%,
+        var(--gold-muted) 100%
+    );
+    background-size: 200% auto;
+    border-radius: 99px;
+    animation: shimmer 3s linear infinite;
+    box-shadow:
+        0 0 12px var(--gold-glow),
+        0 0 4px rgba(245, 166, 35, 0.6);
+    transition: width 0.8s var(--ease-spring);
+}
+
+/* ─── Stat Bar ─── */
+.stat-bar-container {
+    width: 100%;
+    height: 4px;
+    background: var(--bg-raised);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.stat-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.6s ease-out;
+}
+
+/* ─── Skeleton Loader ─── */
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-raised) 25%,
+        var(--bg-overlay) 50%,
+        var(--bg-raised) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+/* ─── Buttons ─── */
+.btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 52px;
+    padding: 14px 24px;
+    background: linear-gradient(
+        135deg,
+        var(--gold-muted),
+        var(--gold),
+        var(--gold-bright)
+    );
+    color: #060608;
+    font-weight: 700;
+    font-size: 15px;
+    font-family: var(--font-display);
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-spring);
+    letter-spacing: 0.02em;
+    touch-action: manipulation;
+    box-shadow: 0 4px 16px var(--gold-glow);
+    will-change: transform;
+}
+
+.btn-primary:active {
+    transform: scale(0.96);
+    opacity: 0.9;
+}
+
+.btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.btn-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 52px;
+    padding: 14px 24px;
+    background: var(--bg-raised);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 15px;
+    font-family: var(--font-body);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+}
+
+.btn-secondary:active {
+    transform: scale(0.96);
+    background: var(--bg-overlay);
+}
+
+/* ─── Gold Pulse (Check-in) ─── */
+.glow-pulse {
+    animation: goldPulse 2.5s ease-in-out infinite;
+}
+
+/* ─── Gradient Text ─── */
+.gradient-text {
+    background: linear-gradient(135deg, var(--gold-muted), var(--gold-bright));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.gradient-text-cyan {
+    background: linear-gradient(135deg, var(--cyan-muted), var(--cyan-bright));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ─── EXP Float Animation ─── */
+.exp-float {
+    position: fixed;
+    pointer-events: none;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--gold);
+    text-shadow: 0 0 12px rgba(245, 200, 66, 0.6);
+    animation: floatUpFade 1.4s ease-out forwards;
+    z-index: 9999;
+}
+
+/* ─── Toast ─── */
+.toast {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    right: 16px;
+    z-index: 10001;
+    pointer-events: none;
+}
+
+/* ─── Stagger Delays ─── */
+.stagger-1 {
+    animation-delay: 0.05s;
+}
+.stagger-2 {
+    animation-delay: 0.1s;
+}
+.stagger-3 {
+    animation-delay: 0.15s;
+}
+.stagger-4 {
+    animation-delay: 0.2s;
+}
+.stagger-5 {
+    animation-delay: 0.25s;
+}
+.stagger-6 {
+    animation-delay: 0.3s;
+}
+
+/* ─── Progress Ring ─── */
+.progress-ring-circle {
+    transition: stroke-dashoffset 0.8s ease-out;
+    transform-origin: center;
+    transform: rotate(-90deg);
+}
+
+/* ─── Anki 3D Card Flip ─── */
+.anki-card-scene {
+    perspective: 900px;
+    width: 100%;
+    flex: 1;
+    min-height: 260px;
+    margin-bottom: 16px;
+}
+
+.anki-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 260px;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform;
+}
+
+.anki-card-inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+.anki-card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 24px 20px;
+}
+
+.anki-card-face.back {
+    transform: rotateY(180deg);
+}
+
+/* ─── EXP Fly-up Particle ─── */
+.exp-particle {
+    position: fixed;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(245, 200, 66, 0.7);
+    animation: expFlyUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    z-index: 9999;
+    white-space: nowrap;
+}
+
+@keyframes expFlyUp {
+    0% {
+        transform: translateY(0) scale(0.7);
+        opacity: 0;
+    }
+    15% {
+        transform: translateY(-10px) scale(1.15);
+        opacity: 1;
+    }
+    60% {
+        transform: translateY(-50px) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-90px) scale(0.9);
+        opacity: 0;
+    }
+}
+
+/* Will-change hints for ProMotion (120Hz) */
+.bottom-nav-pill,
+.more-drawer,
+.anki-card-inner,
+.glass-card-hover {
+    will-change: transform;
+}
+
+/* ─── Motion Duration Tokens ─── */
+:root {
+    --duration-instant: 80ms;
+    --duration-fast: 150ms;
+    --duration-base: 250ms;
+    --duration-slow: 400ms;
+    --duration-crawl: 600ms;
+}
+
+/* ─── Page Header — Dynamic Island safe area ─── */
+.page-header {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
+}
+
+/* ─── Speak Mode Cards — Hover + Press ─── */
+.speak-mode-card {
+    transition:
+        transform 0.15s var(--ease-spring),
+        border-color 0.15s var(--ease-spring),
+        box-shadow 0.15s ease;
+    cursor: pointer;
+    will-change: transform;
+}
+
+.speak-mode-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-gold) !important;
+    box-shadow: 0 4px 20px var(--gold-glow);
+}
+
+.speak-mode-card:active {
+    transform: scale(0.98) translateY(0);
+}
+
+/* ─── Quest Item — Press State ─── */
+.quest-item {
+    transition:
+        transform var(--duration-instant) var(--ease-spring),
+        opacity 0.3s ease;
+    cursor: pointer;
+}
+
+.quest-item:active {
+    transform: scale(0.98);
+}
+
+/* ─── Level Up Bounce Keyframe ─── */
+@keyframes levelBounce {
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.15);
+        opacity: 1;
+    }
+    70% {
+        transform: scale(0.92);
+    }
+    85% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ─── Level Up Glow Pulse ─── */
+@keyframes levelGlow {
+    0%,
+    100% {
+        text-shadow:
+            0 0 20px rgba(245, 200, 66, 0.8),
+            0 0 60px rgba(245, 200, 66, 0.4);
+    }
+    50% {
+        text-shadow:
+            0 0 40px rgba(245, 200, 66, 1),
+            0 0 100px rgba(245, 200, 66, 0.6),
+            0 0 160px rgba(245, 200, 66, 0.2);
+    }
+}
+
+/* ─── Streak Check-in Pulse ─── */
+@keyframes streakPulse {
+    0% {
+        transform: scale(1);
+    }
+    30% {
+        transform: scale(1.3);
+    }
+    60% {
+        transform: scale(0.9);
+    }
+    80% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.streak-flame-pulse {
+    display: inline-block;
+    animation: streakPulse 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Phonetic Badge (Anki) ─── */
+.phonetic-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-muted);
+    background: var(--bg-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 3px 10px;
+    letter-spacing: 0.04em;
+    user-select: none;
+}
+
+/* ─── iOS Polish ─── */
+input,
+textarea,
+button,
+a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+textarea {
+    font-size: 16px; /* Prevent iOS zoom */
+    font-family: var(--font-body);
+}
+
+/* ─── Scrollbar (hide) ─── */
+::-webkit-scrollbar {
+    display: none;
+}
+* {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* ─── Range Slider ─── */
+input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-raised);
+    border-radius: 99px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    background: var(--gold);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(245, 200, 66, 0.5);
+    border: 3px solid var(--bg-base);
+}
+
+/* ═══════════════════════════════════════
+   KEYFRAME ANIMATIONS
+═══════════════════════════════════════ */
+
+/* Mesh gradient background animation */
+@keyframes meshMove {
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% center;
+    }
+    100% {
+        background-position: 200% center;
+    }
+}
+
+@keyframes skeletonShimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes goldPulse {
+    0%,
+    100% {
+        box-shadow:
+            0 0 12px rgba(245, 200, 66, 0.2),
+            0 4px 24px rgba(245, 200, 66, 0.1);
+    }
+    50% {
+        box-shadow:
+            0 0 32px rgba(245, 200, 66, 0.5),
+            0 4px 40px rgba(245, 200, 66, 0.2);
+    }
+}
+
+@keyframes floatUpFade {
+    0% {
+        opacity: 1;
+        transform: translateY(0) translateX(-50%);
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-52px) translateX(-50%);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateX(-50%) translateY(100%);
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateX(-50%) translateY(0);
+    }
+    to {
+        transform: translateX(-50%) translateY(100%);
+    }
+}
+
+@keyframes bounceDot {
+    0%,
+    60%,
+    100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes pulseSlow {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(0.96);
+    }
+}
+
+@keyframes spinSlow {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes dashFlow {
+    to {
+        stroke-dashoffset: -24;
+    }
+}
+
+/* ─── Animation Utility Classes ─── */
+.animate-fade-in-up {
+    animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-scale-in {
+    animation: scaleIn 0.25s ease-out forwards;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-pulse-slow {
+    animation: pulseSlow 2.5s ease-in-out infinite;
+}
+
+.stagger-1 {
+    animation-delay: 0.05s;
+}
+.stagger-2 {
+    animation-delay: 0.1s;
+}
+.stagger-3 {
+    animation-delay: 0.15s;
+}
+.stagger-4 {
+    animation-delay: 0.2s;
+}
+.stagger-5 {
+    animation-delay: 0.25s;
+}
+
+/* ─── Quest Card ─── */
+.quest-card-complete {
+    opacity: 0.55;
+    transition: opacity 0.3s;
+}
+
+/* ─── Balance: Chat bubbles ─── */
+.bubble-user {
+    background: rgba(10, 48, 64, 0.8);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 18px 18px 4px 18px;
+    padding: 10px 14px;
+    max-width: 78%;
+    align-self: flex-end;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.bubble-ai {
+    background: rgba(19, 25, 32, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 18px 18px 18px 4px;
+    padding: 10px 14px;
+    max-width: 84%;
+    align-self: flex-start;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: bounceDot 1.2s ease-in-out infinite;
+}
+
+/* ─── EXP Float Animation (11.9.4) ─── */
+.exp-float {
+    position: fixed;
+    z-index: 9000;
+    pointer-events: none;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--gold);
+    text-shadow:
+        0 0 14px rgba(245, 200, 66, 0.7),
+        0 2px 8px rgba(0, 0, 0, 0.6);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    animation: floatUpFade 1.3s ease-out forwards;
+}

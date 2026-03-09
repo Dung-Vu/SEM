@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                 @id @default(cuid())
+  username             String                 @unique
+  level                Int                    @default(1)
+  exp                  Int                    @default(0)
+  streak               Int                    @default(0)
+  lastCheckIn          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  activityLogs         ActivityLog[]
+  conversations        ConversationSession[]
+  journalEntries       JournalEntry[]
+  monthlyReviews       MonthlyReview[]
+  PushSubscription     PushSubscription[]
+  questProgress        QuestProgress[]
+  resources            Resource[]
+  reviewLogs           ReviewLog[]
+  srsCards             SrsCard[]
+  stats                Stats?
+  userAchievements     UserAchievement[]
+  UserMilestone        UserMilestone[]
+  WeeklyBossCompletion WeeklyBossCompletion[]
+  weeklyStatsLogs      WeeklyStatsLog[]
+  // Phase 14
+  learningEvents       LearningEvent[]
+  learningProfile      LearningProfile?
+  insightCache         InsightCache[]
+  weeklyReports        WeeklyReport[]
+}
+
+model Stats {
+  id        String @id @default(cuid())
+  userId    String @unique
+  vocab     Int    @default(1)
+  grammar   Int    @default(1)
+  listening Int    @default(1)
+  speaking  Int    @default(1)
+  writing   Int    @default(1)
+  user      User   @relation(fields: [userId], references: [id])
+}
+
+model WeeklyStatsLog {
+  id         String   @id @default(cuid())
+  userId     String
+  weekNumber Int
+  year       Int
+  vocab      Int
+  grammar    Int
+  listening  Int
+  speaking   Int
+  writing    Int
+  totalExp   Int      @default(0)
+  highlight  String   @default("")
+  struggle   String   @default("")
+  focus      String   @default("")
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, weekNumber, year])
+}
+
+model Achievement {
+  id               String            @id @default(cuid())
+  key              String            @unique
+  name             String
+  description      String
+  icon             String
+  condition        String            @default("")
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@unique([userId, achievementId])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  source      String
+  amount      Int
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Word {
+  id              String      @id @default(cuid())
+  english         String      @unique
+  vietnamese      String      @default("")
+  definition      String      @default("")
+  exampleSentence String      @default("")
+  level           String      @default("A1")
+  tags            String      @default("")
+  createdAt       DateTime    @default(now())
+  reviewLogs      ReviewLog[]
+  srsCards        SrsCard[]
+}
+
+model SrsCard {
+  id           String   @id @default(cuid())
+  userId       String
+  wordId       String
+  intervalDays Float    @default(0)
+  easeFactor   Float    @default(2.5)
+  nextReview   DateTime @default(now())
+  reviewsCount Int      @default(0)
+  lapseCount   Int      @default(0)
+  status       String   @default("new")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+  word         Word     @relation(fields: [wordId], references: [id])
+
+  @@unique([userId, wordId])
+}
+
+model ReviewLog {
+  id             String   @id @default(cuid())
+  userId         String
+  wordId         String
+  rating         Int
+  intervalBefore Float
+  intervalAfter  Float
+  reviewedAt     DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id])
+  word           Word     @relation(fields: [wordId], references: [id])
+
+  @@index([userId, reviewedAt(sort: Desc)])
+}
+
+model DailyQuestTemplate {
+  id          String @id @default(cuid())
+  key         String @unique
+  name        String
+  description String @default("")
+  expReward   Int    @default(20)
+  type        String @default("main")
+  icon        String @default("📋")
+}
+
+model QuestProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  questKey    String
+  date        String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, questKey, date])
+}
+
+model JournalEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  content    String
+  wordCount  Int      @default(0)
+  newWords   String   @default("")
+  grammar    String   @default("")
+  difficulty String   @default("medium")
+  date       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model Resource {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  link      String   @default("")
+  category  String
+  level     String   @default("B1")
+  notes     String   @default("")
+  status    String   @default("want")
+  expReward Int      @default(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model MonthlyReview {
+  id        String   @id @default(cuid())
+  userId    String
+  month     Int
+  year      Int
+  lookback  String   @default("")
+  obstacles String   @default("")
+  focus     String   @default("")
+  totalExp  Int      @default(0)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, month, year])
+}
+
+model ConversationSession {
+  id        String                @id @default(cuid())
+  userId    String
+  mode      String
+  title     String                @default("")
+  duration  Int                   @default(0)
+  expGained Int                   @default(0)
+  summary   String                @default("")
+  createdAt DateTime              @default(now())
+  messages  ConversationMessage[]
+  user      User                  @relation(fields: [userId], references: [id])
+}
+
+model ConversationMessage {
+  id             String              @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  createdAt      DateTime            @default(now())
+  conversation   ConversationSession @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model ConversationPrompt {
+  id             String   @id
+  modeKey        String
+  title          String
+  systemPrompt   String
+  starterMessage String   @default("")
+  level          String   @default("B1")
+  topic          String   @default("")
+  tags           String   @default("")
+  createdAt      DateTime @default(now())
+}
+
+model Milestone {
+  id            String          @id
+  key           String          @unique
+  title         String
+  description   String
+  targetType    String
+  targetValue   Int
+  rewardDesc    String          @default("")
+  expReward     Int             @default(100)
+  order         Int             @default(0)
+  UserMilestone UserMilestone[]
+}
+
+model PushSubscription {
+  id        String   @id
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ShadowScript {
+  id              String   @id
+  title           String
+  content         String
+  level           String   @default("B1")
+  topic           String   @default("")
+  durationSeconds Int      @default(60)
+  accent          String   @default("US")
+  tags            String   @default("")
+  source          String   @default("")
+  createdAt       DateTime @default(now())
+}
+
+model UserMilestone {
+  id            String    @id
+  userId        String
+  milestoneId   String
+  achievedAt    DateTime  @default(now())
+  rewardClaimed Boolean   @default(false)
+  Milestone     Milestone @relation(fields: [milestoneId], references: [id])
+  User          User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, milestoneId])
+}
+
+model WeeklyBossCompletion {
+  id           String   @id
+  userId       String
+  weekNumber   Int
+  year         Int
+  challengeKey String
+  completedAt  DateTime @default(now())
+  note         String   @default("")
+  User         User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, weekNumber, year])
+}
+
+// ─── Phase 14: ORACLE Analytics ──────────────────────────────────────────
+
+model LearningEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  eventType   String
+  skill       String?
+  score       Int?
+  durationSec Int?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, eventType, createdAt(sort: Desc)])
+  @@index([userId, skill])
+}
+
+model LearningProfile {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  vocabScore               Int      @default(50)
+  speakingScore            Int      @default(50)
+  listeningScore           Int      @default(50)
+  writingScore             Int      @default(50)
+  grammarScore             Int      @default(50)
+  vocabVelocity            Float    @default(0)
+  speakingVelocity         Float    @default(0)
+  listeningVelocity        Float    @default(0)
+  writingVelocity          Float    @default(0)
+  grammarVelocity          Float    @default(0)
+  strongestSkill           String?
+  weakestSkill             String?
+  avgSessionMin            Int      @default(0)
+  bestTimeOfDay            String?
+  consistencyScore         Int      @default(0)
+  ankiRetentionRate        Float    @default(0)
+  avgAnkiScore             Float    @default(0)
+  avgCorrectionsPerSession Float    @default(0)
+  commonErrorTypes         String   @default("[]")
+  updatedAt                DateTime @updatedAt
+  user                     User     @relation(fields: [userId], references: [id])
+}
+
+model InsightCache {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  content   String
+  isRead    Boolean   @default(false)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
+  @@index([userId, type, createdAt(sort: Desc)])
+}
+
+model WeeklyReport {
+  id                  String   @id @default(cuid())
+  userId              String
+  weekNumber          Int
+  year                Int
+  period              String   @default("")
+  totalStudyMinutes   Int      @default(0)
+  totalExp            Int      @default(0)
+  questCompletionRate Float    @default(0)
+  summary             String   @default("")
+  topRecommendation   String   @default("")
+  bestDay             String   @default("")
+  topAchievement      String   @default("")
+  biggestImprovement  String   @default("")
+  skillStats          String   @default("[]")
+  vsLastWeek          String   @default("{}")
+  isRead              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, weekNumber, year])
+}

@@ -1,0 +1,46 @@
+# ============================================
+# English Quest — Docker Compose
+# PostgreSQL + Next.js App
+# ============================================
+
+services:
+    # PostgreSQL Database
+    db:
+        image: postgres:16-alpine
+        container_name: eq-database
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: english_quest
+            POSTGRES_USER: eq_user
+            POSTGRES_PASSWORD: eq_secret_2026
+        volumes:
+            - eq_pgdata:/var/lib/postgresql/data
+        ports:
+            - "5432:5432"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U eq_user -d english_quest"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    # Next.js Application
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: eq-app
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+        env_file:
+            - .env
+        environment:
+            DATABASE_URL: postgresql://eq_user:eq_secret_2026@db:5432/english_quest
+            NODE_ENV: production
+        depends_on:
+            db:
+                condition: service_healthy
+
+volumes:
+    eq_pgdata:
+        driver: local

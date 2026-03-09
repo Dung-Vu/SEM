@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+dev.db
+*.db
+.env.local
+.env
+README.md
+ENGLISH-QUEST-PERSONAL.md
+ENGLISH-QUEST-CHECKLIST.md
