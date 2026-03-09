@@ -1,8 +1,9 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import { haptic } from "@/lib/haptics";
 import {
     Home,
     BookOpen,
@@ -12,6 +13,8 @@ import {
     BarChart3,
     Trophy,
     PenLine,
+    PenTool,
+    ClipboardCheck,
     BookMarked,
     Headphones,
     Compass,
@@ -95,6 +98,18 @@ const MORE_ITEMS: MoreItem[] = [
         label: "Hub",
         color: "var(--emerald)",
     },
+    {
+        href: "/writing",
+        icon: PenTool,
+        label: "Writing",
+        color: "var(--cyan)",
+    },
+    {
+        href: "/exam",
+        icon: ClipboardCheck,
+        label: "Exam",
+        color: "var(--amber)",
+    },
     { href: "/log", icon: Activity, label: "Activity", color: "var(--amber)" },
     {
         href: "/settings",
@@ -106,7 +121,15 @@ const MORE_ITEMS: MoreItem[] = [
 
 function BottomNav() {
     const pathname = usePathname();
+    const router = useRouter();
     const [showMore, setShowMore] = useState(false);
+
+    const prefetchPage = useCallback(
+        (href: string) => {
+            router.prefetch(href);
+        },
+        [router],
+    );
 
     const isMoreActive = MORE_ITEMS.some((item) => item.href === pathname);
 
@@ -249,6 +272,9 @@ function BottomNav() {
                                 key={tab.href}
                                 href={tab.href}
                                 className={`nav-tab${isActive ? " nav-tab-active" : ""}`}
+                                onTouchStart={() => prefetchPage(tab.href)}
+                                onMouseEnter={() => prefetchPage(tab.href)}
+                                onClick={() => haptic("light")}
                                 style={{
                                     color: isActive
                                         ? "var(--gold)"

@@ -136,14 +136,19 @@ export async function generateWeeklyReport(userId: string): Promise<WeeklyReport
     ? `${dayNames[new Date(bestDayKey).getDay()]} — ${dayMap[bestDayKey]} EXP`
     : "Chưa có data";
 
-  // Vs last week
-  const lastWeekSpeakMinutes = await prisma.conversationSession.findMany({
-    where: { userId, createdAt: { gte: since14, lt: since7 } },
-    select: { duration: true },
-  }).then(sessions => sessions.reduce((s, e) => s + Math.round(e.duration / 60), 0));
+  // Vs last week — calculate last week's study time with same formula
+  const [lastWeekSpeakMinutes, lastWeekAnkiCount, lastWeekJournalCount] = await Promise.all([
+    prisma.conversationSession.findMany({
+      where: { userId, createdAt: { gte: since14, lt: since7 } },
+      select: { duration: true },
+    }).then(sessions => sessions.reduce((s, e) => s + Math.round(e.duration / 60), 0)),
+    prisma.reviewLog.count({ where: { userId, reviewedAt: { gte: since14, lt: since7 } } }),
+    prisma.journalEntry.count({ where: { userId, createdAt: { gte: since14, lt: since7 } } }),
+  ]);
+  const lastWeekStudyMinutes = Math.round(lastWeekAnkiCount / 5) + lastWeekSpeakMinutes + lastWeekJournalCount * 5;
 
   const vsLastWeek: VsLastWeek = {
-    studyTime: totalStudyMinutes - Math.round(lastWeekSpeakMinutes + ankiCount / 5),
+    studyTime: totalStudyMinutes - lastWeekStudyMinutes,
     exp: totalExp - lastWeekExp,
     consistency: questCompletionRate,
   };

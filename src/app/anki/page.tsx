@@ -15,6 +15,7 @@ import {
     Sparkles,
     Clock,
 } from "lucide-react";
+import { haptic } from "@/lib/haptics";
 
 interface ReviewCard {
     id: string;
@@ -139,6 +140,7 @@ export default function AnkiPage() {
         const card = cards[currentIndex];
         if (!card) return;
         setAnimatingRating(rating);
+        haptic(rating <= 2 ? "medium" : "light");
 
         try {
             const res = await fetch("/api/anki/review", {

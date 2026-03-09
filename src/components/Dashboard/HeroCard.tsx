@@ -1,6 +1,7 @@
 "use client";
 
 import { Zap } from "lucide-react";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 
 interface UserData {
     username: string;
@@ -183,7 +184,7 @@ export function HeroCard({ user, expProgress, daysSinceStart }: Props) {
                             color: "var(--gold)",
                         }}
                     >
-                        {user.exp.toLocaleString()} /{" "}
+                        <AnimatedNumber value={user.exp} /> /{" "}
                         {user.levelProgress.needed.toLocaleString()}
                     </span>
                 </div>

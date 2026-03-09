@@ -10,6 +10,7 @@ import {
     CheckCircle2,
     Trophy,
 } from "lucide-react";
+import { haptic } from "@/lib/haptics";
 
 interface Quest {
     key: string;
@@ -79,6 +80,41 @@ export default function QuestsPage() {
 
     const handleComplete = async (questKey: string) => {
         setConfirming(null);
+
+        // 17.2: Optimistic — mark complete immediately
+        const q = [...quests.main, ...quests.side, ...quests.weekly].find(
+            (q) => q.key === questKey,
+        );
+
+        // Save snapshot for rollback
+        const prevQuests = { ...quests };
+        const prevProgress = { ...progress };
+
+        // Optimistic update — grey out quest and bump progress
+        const markComplete = (list: Quest[]) =>
+            list.map((item) =>
+                item.key === questKey
+                    ? {
+                          ...item,
+                          completed: true,
+                          completedAt: new Date().toISOString(),
+                      }
+                    : item,
+            );
+        setQuests((prev) => ({
+            main: markComplete(prev.main),
+            side: markComplete(prev.side),
+            weekly: markComplete(prev.weekly),
+        }));
+        setProgress((prev) => ({
+            completed: prev.completed + 1,
+            total: prev.total,
+        }));
+
+        // Haptic + EXP particle immediately
+        haptic("success");
+        if (q) triggerQuestParticle(q.expReward);
+
         try {
             const res = await fetch("/api/quests", {
                 method: "POST",
@@ -86,23 +122,22 @@ export default function QuestsPage() {
                 body: JSON.stringify({ questKey }),
             });
             const data = await res.json();
-            setToast(
-                data.success
-                    ? data.message
-                    : data.message || "Already completed",
-            );
+
             if (data.success) {
-                // Find quest EXP reward for particle
-                const q = [
-                    ...quests.main,
-                    ...quests.side,
-                    ...quests.weekly,
-                ].find((q) => q.key === questKey);
-                if (q) triggerQuestParticle(q.expReward);
+                setToast(data.message);
+                // Re-fetch to sync with server truth
                 await fetchQuests();
+            } else {
+                // Rollback — quest wasn't actually completable
+                setQuests(prevQuests);
+                setProgress(prevProgress);
+                setToast(data.message || "Already completed");
             }
             setTimeout(() => setToast(null), 3000);
         } catch {
+            // Rollback on network error
+            setQuests(prevQuests);
+            setProgress(prevProgress);
             setToast("Error completing quest");
             setTimeout(() => setToast(null), 3000);
         }

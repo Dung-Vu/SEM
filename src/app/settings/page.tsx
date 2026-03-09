@@ -357,6 +357,272 @@ function PushNotificationCard() {
     );
 }
 
+import { Brain } from "lucide-react";
+
+// Phase 15: SENSEI Settings Component
+function SenseiConfig() {
+    const [strictness, setStrictness] = useState("balanced");
+    const [language, setLanguage] = useState("mix");
+    const [autoAdjust, setAutoAdjust] = useState(true);
+    const [vocabReinforce, setVocabReinforce] = useState(true);
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        fetch("/api/ai/tutor-memory")
+            .then((r) => r.json())
+            .then((d) => {
+                if (d.memory) {
+                    setStrictness(d.memory.strictnessLevel ?? "balanced");
+                    setLanguage(d.memory.explanationLanguage ?? "mix");
+                    setAutoAdjust(d.memory.autoAdjust ?? true);
+                    setVocabReinforce(d.memory.vocabReinforce ?? true);
+                }
+                setLoaded(true);
+            })
+            .catch(() => setLoaded(true));
+    }, []);
+
+    const save = (update: Record<string, unknown>) => {
+        fetch("/api/ai/tutor-memory", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(update),
+        }).catch(() => {});
+    };
+
+    if (!loaded) return null;
+
+    const optBtn = (
+        value: string,
+        current: string,
+        label: string,
+        setter: (v: string) => void,
+        key: string,
+    ) => (
+        <button
+            key={value}
+            onClick={() => {
+                setter(value);
+                save({ [key]: value });
+            }}
+            style={{
+                flex: 1,
+                padding: "8px 6px",
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: "1px solid",
+                borderColor:
+                    value === current
+                        ? "var(--gold)"
+                        : "rgba(255,255,255,0.08)",
+                background:
+                    value === current ? "rgba(245,200,66,0.12)" : "transparent",
+                color:
+                    value === current ? "var(--gold)" : "var(--text-secondary)",
+                cursor: "pointer",
+                fontFamily: "var(--font-body)",
+            }}
+        >
+            {label}
+        </button>
+    );
+
+    return (
+        <div
+            className="glass-card animate-fade-in-up"
+            style={{ padding: "16px", marginBottom: "16px" }}
+        >
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    marginBottom: 16,
+                }}
+            >
+                <Brain size={16} style={{ color: "var(--gold)" }} />
+                <h3
+                    style={{
+                        margin: 0,
+                        fontFamily: "var(--font-display)",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: "var(--gold)",
+                    }}
+                >
+                    SENSEI · AI Tutor
+                </h3>
+            </div>
+
+            {/* Strictness */}
+            <p
+                style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-primary)",
+                    margin: "0 0 4px",
+                }}
+            >
+                Độ nghiêm khắc
+            </p>
+            <p
+                style={{
+                    fontSize: 10,
+                    color: "var(--text-muted)",
+                    margin: "0 0 8px",
+                }}
+            >
+                Sửa lỗi nhiều hay ít
+            </p>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {optBtn(
+                    "gentle",
+                    strictness,
+                    "Nhẹ nhàng",
+                    setStrictness,
+                    "strictnessLevel",
+                )}
+                {optBtn(
+                    "balanced",
+                    strictness,
+                    "Cân bằng",
+                    setStrictness,
+                    "strictnessLevel",
+                )}
+                {optBtn(
+                    "strict",
+                    strictness,
+                    "Nghiêm khắc",
+                    setStrictness,
+                    "strictnessLevel",
+                )}
+            </div>
+
+            {/* Explanation Language */}
+            <p
+                style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--text-primary)",
+                    margin: "0 0 4px",
+                }}
+            >
+                Ngôn ngữ giải thích
+            </p>
+            <p
+                style={{
+                    fontSize: 10,
+                    color: "var(--text-muted)",
+                    margin: "0 0 8px",
+                }}
+            >
+                Khi sửa lỗi, giải thích bằng
+            </p>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {optBtn(
+                    "vi",
+                    language,
+                    "Tiếng Việt",
+                    setLanguage,
+                    "explanationLanguage",
+                )}
+                {optBtn(
+                    "mix",
+                    language,
+                    "Mix",
+                    setLanguage,
+                    "explanationLanguage",
+                )}
+                {optBtn(
+                    "en",
+                    language,
+                    "English",
+                    setLanguage,
+                    "explanationLanguage",
+                )}
+            </div>
+
+            {/* Auto-adjust toggle */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
+                }}
+            >
+                <div>
+                    <p
+                        style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                            margin: "0 0 2px",
+                        }}
+                    >
+                        Tự động điều chỉnh độ khó
+                    </p>
+                    <p
+                        style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            margin: 0,
+                        }}
+                    >
+                        SENSEI tự tăng/giảm difficulty
+                    </p>
+                </div>
+                <ToggleSwitch
+                    on={autoAdjust}
+                    onToggle={() => {
+                        setAutoAdjust(!autoAdjust);
+                        save({ autoAdjust: !autoAdjust });
+                    }}
+                />
+            </div>
+
+            {/* Vocab reinforce toggle */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                }}
+            >
+                <div>
+                    <p
+                        style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                            margin: "0 0 2px",
+                        }}
+                    >
+                        Reinforce vocab trong Speak
+                    </p>
+                    <p
+                        style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            margin: 0,
+                        }}
+                    >
+                        AI dùng từ Anki trong conversation
+                    </p>
+                </div>
+                <ToggleSwitch
+                    on={vocabReinforce}
+                    onToggle={() => {
+                        setVocabReinforce(!vocabReinforce);
+                        save({ vocabReinforce: !vocabReinforce });
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
+
 export default function SettingsPage() {
     const [settings, setSettings] = useState<Settings>({
         ankiNewCardsPerDay: 15,
@@ -1169,6 +1435,9 @@ export default function SettingsPage() {
                     ))}
                 </div>
             </div>
+
+            {/* Phase 15: SENSEI Tutor Config */}
+            <SenseiConfig />
 
             {/* Export */}
             <div

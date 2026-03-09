@@ -11,6 +11,7 @@ export type LearningEventType =
   | "speak_session_start"
   | "speak_session_end"
   | "speak_correction"
+  | "vocab_used_in_speak"
   // Quest
   | "quest_completed"
   // Journal
@@ -20,7 +21,13 @@ export type LearningEventType =
   // Check-in
   | "daily_checkin"
   // Milestone
-  | "milestone_unlocked";
+  | "milestone_unlocked"
+  // Writing (Phase 16)
+  | "writing_submitted"
+  | "writing_personal_best"
+  // Exam (Phase 16B)
+  | "exam_completed"
+  | "exam_personal_best";
 
 // ─── logEvent() ───────────────────────────────────────────────────────────
 

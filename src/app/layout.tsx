@@ -3,6 +3,9 @@ import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
+import { PerformanceMonitor } from "@/components/PerformanceMonitor";
+import { ToastProvider } from "@/components/ui/Toast";
+
 export const metadata: Metadata = {
     title: "SEM — Self English Mastery",
     description:
@@ -78,16 +81,40 @@ export default function RootLayout({
                     }}
                 />
                 <ThemeProvider>
-                    <AppShell>{children}</AppShell>
+                    <ToastProvider>
+                        <AppShell>{children}</AppShell>
+                    </ToastProvider>
                 </ThemeProvider>
+                <PerformanceMonitor />
 
-                {/* Service Worker */}
+                {/* Service Worker — v3 registration + background sync */}
                 <script
                     dangerouslySetInnerHTML={{
                         __html: `
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
-              }
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(reg => {
+                            // Force update check on new SW version
+                            reg.addEventListener('updatefound', () => {
+                                const newWorker = reg.installing;
+                                if (newWorker) {
+                                    newWorker.addEventListener('statechange', () => {
+                                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                        }
+                                    });
+                                }
+                            });
+                        })
+                        .catch(() => {});
+                    
+                    // Background sync: revalidate hot data when app comes to foreground
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden && navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({ type: 'REVALIDATE' });
+                        }
+                    });
+                }
             `,
                     }}
                 />

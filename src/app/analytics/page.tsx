@@ -89,21 +89,62 @@ export default function AnalyticsPage() {
     // ─── Loading ───
     if (loading) {
         return (
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minHeight: "60vh",
-                }}
-            >
-                <Loader2
-                    size={28}
+            <div style={{ paddingTop: 8 }}>
+                <div
+                    className="skeleton"
                     style={{
-                        color: "var(--gold)",
-                        animation: "spin 1s linear infinite",
+                        width: 140,
+                        height: 24,
+                        marginBottom: 16,
+                        borderRadius: 8,
                     }}
                 />
+                <div
+                    className="skeleton"
+                    style={{
+                        width: "100%",
+                        height: 72,
+                        borderRadius: 16,
+                        marginBottom: 12,
+                    }}
+                />
+                <div
+                    className="skeleton"
+                    style={{
+                        width: "100%",
+                        height: 220,
+                        borderRadius: 16,
+                        marginBottom: 12,
+                    }}
+                />
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 10,
+                    }}
+                >
+                    <div
+                        className="skeleton"
+                        style={{ height: 80, borderRadius: 12 }}
+                    />
+                    <div
+                        className="skeleton"
+                        style={{ height: 80, borderRadius: 12 }}
+                    />
+                </div>
+                {[1, 2].map((i) => (
+                    <div
+                        key={i}
+                        className="skeleton"
+                        style={{
+                            width: "100%",
+                            height: 100,
+                            borderRadius: 16,
+                            marginTop: 12,
+                        }}
+                    />
+                ))}
             </div>
         );
     }
@@ -380,6 +421,8 @@ export default function AnalyticsPage() {
             </div>
 
             <div style={{ padding: "16px 16px 0" }}>
+                <WeeklyReportLink hasUnread={hasUnreadReport} />
+
                 <OverallScoreBanner
                     profile={profile}
                     overallScore={overallScore}

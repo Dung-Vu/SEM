@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpen, Mic2, Swords, PenLine } from "lucide-react";
+import Link from "next/link";
 
 const QUICK_ACTIONS = [
     {
@@ -57,7 +58,7 @@ export function QuickActions() {
                 }}
             >
                 {QUICK_ACTIONS.map((item) => (
-                    <a
+                    <Link
                         key={item.href}
                         href={item.href}
                         className="glass-card-hover"
@@ -109,7 +110,7 @@ export function QuickActions() {
                                 {item.sub}
                             </p>
                         </div>
-                    </a>
+                    </Link>
                 ))}
             </div>
         </div>

@@ -20,7 +20,10 @@ import {
     Mic2,
     Trophy,
     Bot,
+    Brain,
+    ChevronRight,
 } from "lucide-react";
+import Link from "next/link";
 
 interface Message {
     role: "user" | "assistant";
@@ -84,6 +87,17 @@ export default function SpeakPage() {
     const [elapsed, setElapsed] = useState(0);
     const [summary, setSummary] = useState<string | null>(null);
     const [ending, setEnding] = useState(false);
+    const [debrief, setDebrief] = useState<{
+        performanceScore: number;
+        difficultyUsed: number;
+        nextDifficulty: number;
+        correctionsCount: number;
+        vocabUsed: string[];
+        debrief: string;
+    } | null>(null);
+    const [recommendations, setRecommendations] = useState<
+        { mode: string; reason: string }[]
+    >([]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -103,6 +117,16 @@ export default function SpeakPage() {
             behavior: "smooth",
         });
     }, [messages, loading]);
+
+    // Phase 15: fetch SENSEI recommendations
+    useEffect(() => {
+        fetch("/api/ai/tutor-memory")
+            .then((r) => r.json())
+            .then((d) => {
+                if (d.recommendations) setRecommendations(d.recommendations);
+            })
+            .catch(() => {});
+    }, []);
 
     const formatTime = (s: number) => {
         const m = Math.floor(s / 60);
@@ -296,7 +320,7 @@ export default function SpeakPage() {
                     description: `AI Conversation (${CONVERSATION_MODES[mode!].name}, ${mins} min)`,
                 }),
             });
-            await fetch("/api/ai/conversations", {
+            const convRes = await fetch("/api/ai/conversations", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -308,6 +332,13 @@ export default function SpeakPage() {
                     messages: chatHistory,
                 }),
             });
+            // Phase 15: capture SENSEI debrief
+            try {
+                const convJson = await convRes.json();
+                if (convJson.debrief) setDebrief(convJson.debrief);
+            } catch {
+                /* non-blocking */
+            }
             // Trigger milestone check (fire-and-forget)
             fetch("/api/milestones", { method: "POST" }).catch(() => {});
         } catch {
@@ -426,6 +457,91 @@ export default function SpeakPage() {
                         Chọn chế độ hội thoại để luyện tập
                     </p>
                 </div>
+
+                {/* SENSEI Recommendation Banner */}
+                {recommendations.length > 0 && (
+                    <div
+                        style={{
+                            background: "var(--bg-raised)",
+                            border: "1px solid rgba(245,200,66,0.25)",
+                            borderRadius: 14,
+                            padding: 12,
+                            marginBottom: 12,
+                        }}
+                    >
+                        <p
+                            style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                color: "var(--gold)",
+                                textTransform: "uppercase" as const,
+                                margin: "0 0 8px",
+                                fontFamily: "var(--font-display)",
+                            }}
+                        >
+                            🧠 SENSEI gợi ý
+                        </p>
+                        {recommendations.map((r, i) => (
+                            <p
+                                key={i}
+                                style={{
+                                    fontSize: 12,
+                                    color: "var(--text-secondary)",
+                                    margin:
+                                        i < recommendations.length - 1
+                                            ? "0 0 4px"
+                                            : 0,
+                                }}
+                            >
+                                {i + 1}. {r.mode.replace(/_/g, " ")} —{" "}
+                                {r.reason}
+                            </p>
+                        ))}
+                    </div>
+                )}
+
+                {/* SENSEI Memory Link */}
+                <Link href="/speak/memory" style={{ textDecoration: "none" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 14px",
+                            background: "var(--bg-raised)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                            }}
+                        >
+                            <Brain
+                                size={16}
+                                style={{ color: "var(--violet-bright)" }}
+                            />
+                            <span
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: "var(--text-primary)",
+                                }}
+                            >
+                                Tutor Memory
+                            </span>
+                        </div>
+                        <ChevronRight
+                            size={14}
+                            style={{ color: "var(--text-muted)" }}
+                        />
+                    </div>
+                </Link>
 
                 <div
                     style={{
@@ -683,12 +799,155 @@ export default function SpeakPage() {
                     </div>
                 </div>
 
+                {/* Phase 15: SENSEI Debrief */}
+                {debrief && (
+                    <div
+                        className="glass-card animate-fade-in-up stagger-2"
+                        style={{
+                            padding: "16px",
+                            marginBottom: "12px",
+                            borderColor: "rgba(245,200,66,0.25)",
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginBottom: "12px",
+                            }}
+                        >
+                            <Brain
+                                size={16}
+                                color="var(--gold)"
+                                strokeWidth={2}
+                            />
+                            <h3
+                                style={{
+                                    margin: 0,
+                                    fontFamily: "var(--font-display)",
+                                    fontSize: "14px",
+                                    fontWeight: 700,
+                                    color: "var(--gold)",
+                                }}
+                            >
+                                SENSEI Debrief
+                            </h3>
+                        </div>
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr 1fr",
+                                gap: 8,
+                                marginBottom: 12,
+                            }}
+                        >
+                            <div style={{ textAlign: "center" }}>
+                                <p
+                                    style={{
+                                        fontSize: 18,
+                                        fontWeight: 800,
+                                        margin: "0 0 2px",
+                                        fontFamily: "var(--font-display)",
+                                        color:
+                                            debrief.performanceScore >= 70
+                                                ? "var(--emerald)"
+                                                : debrief.performanceScore >= 50
+                                                  ? "var(--gold)"
+                                                  : "var(--ruby)",
+                                    }}
+                                >
+                                    {debrief.performanceScore}
+                                </p>
+                                <p
+                                    style={{
+                                        fontSize: 10,
+                                        color: "var(--text-muted)",
+                                        margin: 0,
+                                    }}
+                                >
+                                    Performance
+                                </p>
+                            </div>
+                            <div style={{ textAlign: "center" }}>
+                                <p
+                                    style={{
+                                        fontSize: 18,
+                                        fontWeight: 800,
+                                        color: "var(--cyan)",
+                                        margin: "0 0 2px",
+                                        fontFamily: "var(--font-display)",
+                                    }}
+                                >
+                                    {debrief.difficultyUsed}→
+                                    {debrief.nextDifficulty}
+                                </p>
+                                <p
+                                    style={{
+                                        fontSize: 10,
+                                        color: "var(--text-muted)",
+                                        margin: 0,
+                                    }}
+                                >
+                                    Difficulty
+                                </p>
+                            </div>
+                            <div style={{ textAlign: "center" }}>
+                                <p
+                                    style={{
+                                        fontSize: 18,
+                                        fontWeight: 800,
+                                        color: "var(--violet-bright)",
+                                        margin: "0 0 2px",
+                                        fontFamily: "var(--font-display)",
+                                    }}
+                                >
+                                    {debrief.correctionsCount}
+                                </p>
+                                <p
+                                    style={{
+                                        fontSize: 10,
+                                        color: "var(--text-muted)",
+                                        margin: 0,
+                                    }}
+                                >
+                                    Corrections
+                                </p>
+                            </div>
+                        </div>
+                        {debrief.vocabUsed.length > 0 && (
+                            <p
+                                style={{
+                                    fontSize: 11,
+                                    color: "var(--emerald)",
+                                    margin: "0 0 10px",
+                                }}
+                            >
+                                ✓ Vocab used: {debrief.vocabUsed.join(", ")}
+                            </p>
+                        )}
+                        <p
+                            style={{
+                                fontSize: 13,
+                                lineHeight: 1.7,
+                                color: "var(--text-secondary)",
+                                whiteSpace: "pre-wrap",
+                                fontFamily: "var(--font-body)",
+                                margin: 0,
+                            }}
+                        >
+                            {debrief.debrief}
+                        </p>
+                    </div>
+                )}
+
                 <div style={{ display: "flex", gap: "8px" }}>
                     <button
                         onClick={() => {
                             setMode(null);
                             setMessages([]);
                             setSummary(null);
+                            setDebrief(null);
                         }}
                         className="btn-primary"
                         style={{ flex: 2 }}

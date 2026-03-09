@@ -8,6 +8,7 @@ import {
     Calendar,
     Zap,
 } from "lucide-react";
+import Link from "next/link";
 
 interface Props {
     daysSinceStart: number;
@@ -108,7 +109,7 @@ export function MoreLinks({ daysSinceStart, totalExp }: Props) {
                     }}
                 >
                     {MORE_LINKS.map((item) => (
-                        <a
+                        <Link
                             key={item.href}
                             href={item.href}
                             style={{
@@ -142,7 +143,7 @@ export function MoreLinks({ daysSinceStart, totalExp }: Props) {
                                 />
                             </span>
                             {item.label}
-                        </a>
+                        </Link>
                     ))}
                 </div>
             </div>

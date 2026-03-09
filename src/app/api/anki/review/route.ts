@@ -200,8 +200,16 @@ export async function POST(request: Request) {
       const { autoTickQuest } = await import("@/lib/auto-quest");
       autoQuestExp = await autoTickQuest(user.id, "anki_review");
 
-      // Log anki_session_complete at the 10-card milestone (once per session threshold)
-      if (todayReviewCount === 10) {
+      // Log anki_session_complete at the 10-card milestone (once daily)
+      // Dedup: check if already logged today
+      const alreadyLogged = await prisma.learningEvent.findFirst({
+        where: {
+          userId: user.id,
+          eventType: "anki_session_complete",
+          createdAt: { gte: todayStart2 },
+        },
+      });
+      if (!alreadyLogged) {
         const todayReviews = await prisma.reviewLog.findMany({
           where: { userId: user.id, reviewedAt: { gte: todayStart2 } },
           select: { rating: true },
@@ -212,6 +220,11 @@ export async function POST(request: Request) {
           cards_mastered: mastered,
           retention: Math.round((mastered / todayReviewCount) * 100),
         });
+
+        // Phase 15: sync vocab to SENSEI tutor memory
+        import("@/lib/vocab-memory").then(({ syncVocabMemory }) => {
+          void syncVocabMemory(user.id);
+        }).catch(() => {});
       }
     }
 

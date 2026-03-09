@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { PenLine, BookOpen, Bot, Loader2, Bookmark } from "lucide-react";
+import { PenLine, BookOpen, Bot, Bookmark } from "lucide-react";
 
 interface JournalEntry {
     id: string;
@@ -562,12 +562,26 @@ export default function JournalPage() {
                             }}
                         >
                             {loadingFeedback ? (
-                                <Loader2
-                                    size={16}
+                                <span
                                     style={{
-                                        animation: "spin 1s linear infinite",
+                                        display: "inline-flex",
+                                        gap: 3,
+                                        justifyContent: "center",
                                     }}
-                                />
+                                >
+                                    {[0, 1, 2].map((i) => (
+                                        <span
+                                            key={i}
+                                            style={{
+                                                width: 5,
+                                                height: 5,
+                                                borderRadius: "50%",
+                                                background: "var(--violet)",
+                                                animation: `thinking-bounce 1.2s ease-in-out ${i * 0.15}s infinite`,
+                                            }}
+                                        />
+                                    ))}
+                                </span>
                             ) : (
                                 <>
                                     <Bot

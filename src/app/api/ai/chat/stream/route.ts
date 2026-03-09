@@ -2,6 +2,7 @@ import { CONVERSATION_MODES, type ConversationMode } from "@/lib/ai-client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logEvent } from "@/lib/analytics";
+import { buildSenseiSystemPrompt } from "@/lib/sensei-prompt";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -31,21 +32,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }
 
+    // Single user lookup — shared across logging + SENSEI prompt
+    const user = await prisma.user.findFirst();
+
     // Log speak_session_start when this is the first user message
-    if (messages.length === 1 && messages[0].role === "user") {
-      void (async () => {
-        try {
-          const user = await prisma.user.findFirst();
-          if (user) {
-            await logEvent(user.id, "speak_session_start", "speaking", undefined, undefined, { mode });
-          }
-        } catch { /* non-blocking */ }
-      })();
+    if (user && messages.length === 1 && messages[0].role === "user") {
+      void logEvent(user.id, "speak_session_start", "speaking", undefined, undefined, { mode });
+    }
+
+    // Phase 15: SENSEI memory-aware system prompt
+    let systemContent: string = modeConfig.systemPrompt;
+    if (user) {
+      try {
+        systemContent = await buildSenseiSystemPrompt(user.id, mode);
+      } catch {
+        // Fallback to static prompt if SENSEI fails
+      }
     }
 
     const systemMessage: ChatMessage = {
       role: "system",
-      content: modeConfig.systemPrompt,
+      content: systemContent,
     };
 
     const allMessages: ChatMessage[] = [systemMessage, ...messages];

@@ -158,21 +158,46 @@ export default function WeeklyReportPage() {
 
     if (loading)
         return (
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minHeight: "60vh",
-                }}
-            >
-                <Loader2
-                    size={28}
+            <div style={{ paddingTop: 8 }}>
+                <div
+                    className="skeleton"
                     style={{
-                        color: "var(--gold)",
-                        animation: "spin 1s linear infinite",
+                        width: 180,
+                        height: 24,
+                        marginBottom: 12,
+                        borderRadius: 8,
                     }}
                 />
+                <div
+                    className="skeleton"
+                    style={{
+                        width: "100%",
+                        height: 80,
+                        borderRadius: 16,
+                        marginBottom: 12,
+                    }}
+                />
+                <div
+                    className="skeleton"
+                    style={{
+                        width: "100%",
+                        height: 160,
+                        borderRadius: 16,
+                        marginBottom: 12,
+                    }}
+                />
+                {[1, 2, 3].map((i) => (
+                    <div
+                        key={i}
+                        className="skeleton"
+                        style={{
+                            width: "100%",
+                            height: 64,
+                            borderRadius: 12,
+                            marginBottom: 8,
+                        }}
+                    />
+                ))}
             </div>
         );
 

@@ -35,6 +35,14 @@ model User {
   learningProfile      LearningProfile?
   insightCache         InsightCache[]
   weeklyReports        WeeklyReport[]
+  // Phase 15
+  tutorMemory          TutorMemory?
+  tutorSessions        TutorSession[]
+  // Phase 16
+  writingSubmissions   WritingSubmission[]
+  // Phase 16B
+  exams                Exam[]
+  examResults          ExamResult[]
 }
 
 model Stats {
@@ -387,4 +395,196 @@ model WeeklyReport {
   user                User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, weekNumber, year])
+}
+
+// ─── Phase 15: SENSEI — AI Tutor Memory ─────────────────────────────────
+
+model TutorMemory {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  // Error patterns (from speak corrections)
+  errorPatterns         Json     @default("[]")
+  // Known vocab (mastered via Anki)
+  knownVocab            Json     @default("[]")
+  // Active vocab targets (Anki due cards, AI should reinforce)
+  activeVocabTargets    Json     @default("[]")
+  // Difficulty state
+  currentDifficulty     Int      @default(5)
+  difficultyHistory     Json     @default("[]")
+  autoAdjust            Boolean  @default(true)
+  // Session memory
+  totalSessions         Int      @default(0)
+  lastSessionAt         DateTime?
+  lastSessionMode       String?
+  lastSessionSummary    String?
+  // Learning style (detected)
+  preferredTopics       String[] @default([])
+  avoidTopics           String[] @default([])
+  responseStyle         String   @default("balanced")
+  // Long-term narrative
+  journeySummary        String?
+  strengths             String[] @default([])
+  persistentWeaknesses  String[] @default([])
+  // Personality config (15.10)
+  strictnessLevel       String   @default("balanced")
+  explanationLanguage   String   @default("mix")
+  vocabReinforce        Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id])
+}
+
+model TutorSession {
+  id               String   @id @default(cuid())
+  userId           String
+  sessionId        String
+  mode             String?
+  topic            String?
+  durationSec      Int      @default(0)
+  messageCount     Int      @default(0)
+  difficultyUsed   Int      @default(5)
+  performanceScore Int      @default(0)
+  corrections      Json     @default("[]")
+  newErrors        Json     @default("[]")
+  vocabUsed        String[] @default([])
+  aiDebrief        String?
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ─── Phase 16: EXAMINER — Writing Lab ────────────────────────────────────
+
+model WritingPrompt {
+  id             String   @id @default(cuid())
+  title          String
+  instruction    String
+  type           String   // essay | paragraph | email | report | story
+  level          String   // B1 | B2 | C1 | C2
+  topic          String?
+  minWords       Int      @default(150)
+  maxWords       Int      @default(350)
+  timeLimit      Int?     // minutes, null = no limit
+  isAiGenerated  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  submissions    WritingSubmission[]
+}
+
+model WritingSubmission {
+  id                  String   @id @default(cuid())
+  userId              String
+  promptId            String?
+  customPrompt        String?
+  content             String
+  wordCount           Int      @default(0)
+  timeSpentSec        Int      @default(0)
+  // AI Grading — 4 sub-scores + overall
+  overallScore        Int?     // 0-100 weighted average
+  grammarScore        Int?     // 0-100
+  vocabScore          Int?     // 0-100
+  coherenceScore      Int?     // 0-100
+  taskScore           Int?     // 0-100
+  // Feedback
+  aiFeedback          String?  // Overall assessment (AI written)
+  grammarErrors       Json     @default("[]") // [{original, corrected, explanation, type}]
+  vocabSuggestions    Json     @default("[]") // [{original, better_option, reason}]
+  rewriteSample       String?  // AI rewrite of weakest paragraph
+  strengths           Json     @default("[]") // ["strength1", "strength2"]
+  improvements        Json     @default("[]") // ["improvement1", "improvement2"]
+  // Comparison
+  improvementVsLast   Int?     // score diff vs previous submission of same type
+  isPersonalBest      Boolean  @default(false)
+  // Rewrite support (self-relation)
+  parentSubmissionId  String?
+  parentSubmission    WritingSubmission?  @relation("Rewrites", fields: [parentSubmissionId], references: [id])
+  rewrites            WritingSubmission[] @relation("Rewrites")
+  // Timestamps
+  submittedAt         DateTime @default(now())
+  // Relations
+  user                User          @relation(fields: [userId], references: [id])
+  prompt              WritingPrompt? @relation(fields: [promptId], references: [id])
+
+  @@index([userId, submittedAt(sort: Desc)])
+  @@index([userId, promptId])
+}
+
+// ─── Phase 16B: TRIBUNAL — Exam Mode ─────────────────────────────────────
+
+model ExamQuestion {
+  id             String   @id @default(cuid())
+  section        String   // grammar | vocabulary | reading | listening
+  level          String   // B1 | B2 | C1
+  topic          String?  // tense | idiom | business ...
+  passage        String?  // reading passage or listening transcript
+  question       String
+  optionA        String
+  optionB        String
+  optionC        String
+  optionD        String
+  correct        String   // A | B | C | D
+  explanation    String
+  isAiGenerated  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  answers        ExamAnswer[]
+
+  @@index([section, level])
+}
+
+model Exam {
+  id           String       @id @default(cuid())
+  userId       String
+  level        String
+  mode         String       // full | quick | section
+  sections     String[]     @default([])
+  questionIds  String[]     @default([])
+  timeLimit    Int          @default(60) // minutes
+  startedAt    DateTime?
+  submittedAt  DateTime?
+  timeSpent    Int?         // seconds actual
+  status       String       @default("pending") // pending | in_progress | submitted
+  createdAt    DateTime     @default(now())
+  user         User         @relation(fields: [userId], references: [id])
+  answers      ExamAnswer[]
+  result       ExamResult?
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model ExamAnswer {
+  id          String       @id @default(cuid())
+  examId      String
+  questionId  String
+  userAnswer  String?      // A | B | C | D | null (skipped)
+  isCorrect   Boolean?     // null until graded
+  timeSpent   Int          @default(0) // seconds for this question
+  flagged     Boolean      @default(false)
+  exam        Exam         @relation(fields: [examId], references: [id])
+  question    ExamQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([examId, questionId])
+}
+
+model ExamResult {
+  id              String   @id @default(cuid())
+  examId          String   @unique
+  userId          String
+  totalScore      Int      @default(0)
+  grammarScore    Int      @default(0)
+  vocabScore      Int      @default(0)
+  readingScore    Int      @default(0)
+  listeningScore  Int      @default(0)
+  totalCorrect    Int      @default(0)
+  totalWrong      Int      @default(0)
+  totalSkipped    Int      @default(0)
+  accuracyRate    Float    @default(0)
+  vsLastExam      Int?     // difference vs previous exam score
+  isPersonalBest  Boolean  @default(false)
+  aiAnalysis      String?  // AI-written overall assessment
+  weakTopics      String[] @default([])
+  strongTopics    String[] @default([])
+  createdAt       DateTime @default(now())
+  exam            Exam     @relation(fields: [examId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
 }

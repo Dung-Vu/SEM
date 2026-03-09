@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logEvent } from "@/lib/analytics";
+import { processSessionEnd } from "@/lib/session-debrief";
 
 // GET — List all conversation sessions
 export async function GET() {
@@ -87,7 +88,19 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    return NextResponse.json({ success: true, id: session.id });
+    // Phase 15: SENSEI post-session processing
+    let debrief = null;
+    try {
+      debrief = await processSessionEnd(user.id, session.id, {
+        mode,
+        durationSec: duration || 0,
+        messages,
+      });
+    } catch (err) {
+      console.error("SENSEI processSessionEnd error:", err);
+    }
+
+    return NextResponse.json({ success: true, id: session.id, debrief });
   } catch (error) {
     console.error("POST /api/ai/conversations error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
