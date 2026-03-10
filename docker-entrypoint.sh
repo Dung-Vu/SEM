@@ -19,6 +19,7 @@ node prisma/seed-quests-expanded.js 2>/dev/null || true
 node prisma/seed-resources.js 2>/dev/null || true
 node prisma/seed-writing-quests.js 2>/dev/null || true
 node prisma/seed-writing-prompts.js 2>/dev/null || true
+node prisma/seed-exam-questions.js 2>/dev/null || true
 
 echo "✅ Database ready!"
 echo "🎮 Starting English Quest on port 3000..."

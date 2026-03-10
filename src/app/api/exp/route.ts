@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getLevelFromExp, getKingdomInfo } from "@/lib/exp";
+import { sendLevelUpNotification } from "@/lib/notifications/level-up";
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +47,13 @@ export async function POST(request: NextRequest) {
         description: description ?? `+${amount} EXP from ${source}`,
       },
     });
+
+    if (leveledUp) {
+      const info = getKingdomInfo(newLevel);
+      await sendLevelUpNotification(user.id, newLevel, info.title).catch(err => {
+        console.error("Failed to send level up notification:", err);
+      });
+    }
 
     return NextResponse.json({
       success: true,

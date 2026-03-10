@@ -17,6 +17,10 @@ export interface PushPayload {
   badge?: string;
   url?: string;
   tag?: string;
+  type?: string;          // Phase 18
+  image?: string;         // Phase 18
+  vibrate?: number[];     // Phase 18
+  data?: Record<string, string | number | boolean | null>; // Phase 18 custom data payload
 }
 
 /** Returns true on success, false on failure, "expired" when browser has unsubscribed (410 Gone) */

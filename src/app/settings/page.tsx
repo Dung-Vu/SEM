@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { usePushNotifications } from "@/app/hooks/usePushNotifications";
+import { NotificationSettingsCard } from "@/components/notifications/NotificationSettingsCard";
 import {
     BarChart3,
     Trophy,
@@ -812,6 +813,9 @@ export default function SettingsPage() {
 
             {/* Push Notifications */}
             <PushNotificationCard />
+
+            {/* Phase 18: Smart Notification Settings */}
+            <NotificationSettingsCard />
 
             {/* Anki */}
             <div

@@ -262,59 +262,108 @@ self.addEventListener("message", (event) => {
     }
 });
 
-// ─── Web Push (preserved from Phase 12) ──────────────────────────────────
+// ─── Phase 18: Smart Notifications (HERALD) ────────────────────────────────
 
-self.addEventListener("push", (event) => {
-    if (!event.data) return;
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
 
-    let data;
-    try {
-        data = event.data.json();
-    } catch {
-        data = { title: "English Quest", body: event.data.text() };
-    }
+  let data = {};
+  try {
+    data = event.data.json();
+  } catch (e) {
+    data = { title: "English Quest", body: event.data.text() };
+  }
 
-    const options = {
-        body: data.body || "Time to keep your streak alive! 🔥",
-        icon: data.icon || "/icons/icon-192.png",
-        badge: "/icons/icon-192.png",
-        tag: data.tag || "eq-reminder",
-        data: { url: data.url || "/" },
-        requireInteraction: false,
-        actions: [
-            { action: "open", title: "📚 Study Now" },
-            { action: "dismiss", title: "Later" },
-        ],
-    };
+  const options = {
+    body: data.body,
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon-192.png',
+    
+    // Rich notification features
+    image: data.image || null,
+    vibrate: data.vibrate || [100, 50, 100],
 
-    event.waitUntil(
-        self.registration.showNotification(
-            data.title || "English Quest",
-            options,
-        ),
-    );
+    // Action buttons (max 2)
+    actions: buildActions(data.type),
+
+    // Data for click handler
+    data: {
+      url: data.data?.url || '/',
+      type: data.type,
+      ...(data.data || {})
+    },
+
+    // iOS PWA behavior
+    requireInteraction: data.type === 'streak_warning',
+    silent: false,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || "English Quest", options)
+  );
 });
 
-self.addEventListener("notificationclick", (event) => {
-    event.notification.close();
-    if (event.action === "dismiss") return;
+// Action buttons mapping by type
+function buildActions(type) {
+  const actionMap = {
+    'streak_warning': [
+      { action: 'checkin', title: '✅ Check-in ngay' },
+      { action: 'dismiss', title: 'Để sau' }
+    ],
+    'anki_reminder': [
+      { action: 'open_anki', title: '📚 Review ngay' },
+      { action: 'dismiss', title: 'Nhắc lại sau' }
+    ],
+    'quest_reminder': [
+      { action: 'open_quests', title: '⚔️ Xem Quest' },
+      { action: 'dismiss', title: 'OK' }
+    ],
+    'weekly_report': [
+      { action: 'open_report', title: '📊 Xem báo cáo' },
+    ],
+    'level_up': [
+      { action: 'open_home', title: '🏆 Xem Level mới' },
+    ],
+  };
+  return actionMap[type] || [
+    { action: "open", title: "Mở ứng dụng" }
+  ];
+}
 
-    const url = event.notification.data?.url || "/";
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
 
-    event.waitUntil(
-        clients
-            .matchAll({ type: "window", includeUncontrolled: true })
-            .then((clientList) => {
-                for (const client of clientList) {
-                    if (
-                        client.url.includes(self.location.origin) &&
-                        "focus" in client
-                    ) {
-                        client.navigate(url);
-                        return client.focus();
-                    }
-                }
-                if (clients.openWindow) return clients.openWindow(url);
-            }),
-    );
+  const { url: defaultUrl, type } = event.notification.data || {};
+  const action = event.action;
+
+  // Map action to specific URL
+  const actionUrls = {
+    'checkin':      '/?action=checkin',
+    'open_anki':    '/anki',
+    'open_quests':  '/quests',
+    'open_report':  '/analytics/weekly',
+    'open_home':    '/',
+    'open':         defaultUrl || '/',
+    'dismiss':      null,   // explicitly null to not open app
+  };
+
+  // If action is specific, use mapped URL. If no action (clicked body), use defaultUrl
+  const targetUrl = action ? actionUrls[action] : (defaultUrl || '/');
+  
+  if (!targetUrl) return; // dismissed
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      // If app is already open, focus it and navigate
+      const existing = windowClients.find(c => c.focused || c.visibilityState === 'visible') || windowClients[0];
+      
+      if (existing && 'focus' in existing) {
+        existing.navigate(targetUrl);
+        return existing.focus();
+      } else if (clients.openWindow) {
+        // App is closed, open it
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
 });

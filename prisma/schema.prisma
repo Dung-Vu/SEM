@@ -43,6 +43,9 @@ model User {
   // Phase 16B
   exams                Exam[]
   examResults          ExamResult[]
+  // Phase 18
+  notificationLogs     NotificationLog[]
+  notificationSetting  NotificationSetting?
 }
 
 model Stats {
@@ -587,4 +590,43 @@ model ExamResult {
   user            User     @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt(sort: Desc)])
+}
+
+// ─── Phase 18: HERALD — Smart Notifications ──────────────────────────────
+
+model NotificationLog {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String    // streak_warning | anki_reminder | quest_reminder | level_up | weekly_report | ai_insight
+  title     String
+  body      String
+  sentAt    DateTime  @default(now())
+  opened    Boolean   @default(false)
+  openedAt  DateTime?
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, type, sentAt(sort: Desc)])
+}
+
+model NotificationSetting {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  // Per-type toggles
+  streakWarning        Boolean  @default(true)
+  ankiReminder         Boolean  @default(true)
+  questReminder        Boolean  @default(true)
+  levelUp              Boolean  @default(true)
+  weeklyReport         Boolean  @default(true)
+  aiInsight            Boolean  @default(true)
+  // Timing preferences
+  ankiReminderTime     String   @default("08:00")
+  questReminderTime    String   @default("20:00")
+  streakWarningHour    Int      @default(21)
+  quietHoursStart      Int      @default(23)
+  quietHoursEnd        Int      @default(7)
+  // Smart settings
+  skipIfAlreadyDone    Boolean  @default(true)
+  maxPerDay            Int      @default(3)
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id])
 }
