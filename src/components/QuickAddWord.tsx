@@ -13,14 +13,34 @@ export function QuickAddWord() {
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [todayCount, setTodayCount] = useState(0);
+    const [kbOffset, setKbOffset] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (open && inputRef.current) inputRef.current.focus();
     }, [open]);
 
+    // Track iOS keyboard via visualViewport
     useEffect(() => {
-        // Fetch today's word count
+        if (!open) {
+            setKbOffset(0);
+            return;
+        }
+        const vv = typeof window !== "undefined" ? window.visualViewport : null;
+        if (!vv) return;
+
+        const onResize = () => {
+            // Keyboard height = full window height - visual viewport height
+            const offset = Math.max(0, window.innerHeight - vv.height);
+            setKbOffset(offset);
+        };
+
+        vv.addEventListener("resize", onResize);
+        onResize();
+        return () => vv.removeEventListener("resize", onResize);
+    }, [open]);
+
+    useEffect(() => {
         fetch("/api/anki/words?countToday=true")
             .then((r) => r.json())
             .then((d) => {
@@ -70,7 +90,7 @@ export function QuickAddWord() {
                 <div
                     style={{
                         position: "fixed",
-                        top: "20px",
+                        top: "calc(env(safe-area-inset-top, 0px) + 12px)",
                         left: "50%",
                         transform: "translateX(-50%)",
                         zIndex: 10000,
@@ -104,7 +124,7 @@ export function QuickAddWord() {
                 onClick={() => setOpen(true)}
                 style={{
                     position: "fixed",
-                    bottom: "80px",
+                    bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
                     right: "12px",
                     zIndex: 900,
                     width: "44px",
@@ -129,12 +149,12 @@ export function QuickAddWord() {
                     style={{ color: "var(--bg-void)" }}
                 />
             </button>
-            {/* Today counter badge — small pill above FAB */}
+            {/* Today counter badge */}
             {todayCount > 0 && !hideBadge && (
                 <div
                     style={{
                         position: "fixed",
-                        bottom: "126px",
+                        bottom: "calc(126px + env(safe-area-inset-bottom, 0px))",
                         right: "10px",
                         zIndex: 901,
                         background:
@@ -156,32 +176,41 @@ export function QuickAddWord() {
                 </div>
             )}
 
-            {/* Modal */}
+            {/* Modal — separate backdrop + sheet for iOS keyboard compat */}
             {open && (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        zIndex: 9999,
-                        background: "rgba(0,0,0,0.6)",
-                        backdropFilter: "blur(4px)",
-                        display: "flex",
-                        alignItems: "flex-end",
-                        justifyContent: "center",
-                    }}
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) setOpen(false);
-                    }}
-                >
+                <>
+                    {/* Backdrop */}
+                    <div
+                        onClick={() => setOpen(false)}
+                        style={{
+                            position: "fixed",
+                            inset: 0,
+                            zIndex: 9998,
+                            background: "rgba(0,0,0,0.6)",
+                            backdropFilter: "blur(4px)",
+                            WebkitBackdropFilter: "blur(4px)",
+                        }}
+                    />
+                    {/* Sheet — tracks keyboard via bottom offset */}
                     <div
                         className="glass-card animate-scale-in"
                         style={{
+                            position: "fixed",
+                            bottom: kbOffset,
+                            left: 0,
+                            right: 0,
+                            zIndex: 9999,
                             width: "100%",
                             maxWidth: "430px",
+                            margin: "0 auto",
                             padding: "20px",
-                            marginBottom: "0",
+                            paddingBottom:
+                                kbOffset > 0
+                                    ? "12px"
+                                    : "calc(env(safe-area-inset-bottom, 0px) + 20px)",
                             borderRadius: "20px 20px 0 0",
                             borderBottom: "none",
+                            transition: "bottom 0.15s ease-out",
                         }}
                     >
                         <div
@@ -273,7 +302,7 @@ export function QuickAddWord() {
                             {saving ? "Adding..." : "Add to Anki Deck"}
                         </button>
                     </div>
-                </div>
+                </>
             )}
         </>
     );

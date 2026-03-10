@@ -241,9 +241,7 @@ export default function WeeklyReportPage() {
     return (
         <div
             style={{
-                minHeight: "100dvh",
                 background: "var(--bg-void)",
-                paddingBottom: 120,
             }}
         >
             {/* Header */}
@@ -251,10 +249,6 @@ export default function WeeklyReportPage() {
                 style={{
                     padding: "calc(env(safe-area-inset-top) + 16px) 20px 16px",
                     borderBottom: "1px solid rgba(255,255,255,0.05)",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 10,
-                    backdropFilter: "blur(12px)",
                     background: "var(--bg-void)",
                 }}
             >

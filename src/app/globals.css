@@ -286,6 +286,7 @@
     }
     html {
         -webkit-text-size-adjust: 100%;
+        background-color: var(--bg-base);
     }
     body {
         background-color: var(--bg-base);
@@ -297,11 +298,7 @@
         padding: 0;
         overscroll-behavior: none;
         overflow: hidden;
-        /* --app-height is set by visualViewport script, fallbacks for SSR */
         height: 100dvh;
-        height: -webkit-fill-available;
-        height: var(--app-height, 100dvh);
-        /* Subtle grain texture */
         position: relative;
     }
     h1,
@@ -327,10 +324,7 @@ body::before {
 .app-shell {
     display: flex;
     flex-direction: column;
-    /* Use --app-height (set by visualViewport script) to match actual visible height on iOS PWA */
     height: 100dvh;
-    height: -webkit-fill-available;
-    height: var(--app-height, 100dvh);
     max-width: 430px;
     margin: 0 auto;
     position: relative;
@@ -347,10 +341,9 @@ body::before {
     scroll-behavior: smooth;
     padding: 0 16px;
     padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
-    /* 80px clears the nav pill (~56px) + bottom-nav spacing (10px) + breathing (14px).
-       env(safe-area-inset-bottom) adds the iOS home-indicator offset.
-       Total on iPhone: 80 + 34 = 114px. On non-safe-area: 80px. */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    /* 100px clears the nav pill (~84px) + breathing room (16px).
+       env(safe-area-inset-bottom) adds iOS home-indicator offset. */
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
 }
 
 .app-content::-webkit-scrollbar {
