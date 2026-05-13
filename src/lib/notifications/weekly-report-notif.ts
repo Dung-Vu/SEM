@@ -1,11 +1,11 @@
 import { generateWeeklyReport } from "@/lib/weekly-report";
+import { getLocalDayOfWeek } from "@/lib/streak";
 import { shouldSendNotification } from "./scheduler";
 import { sendUserPushNotification } from "./push-handler";
 
 export async function checkAndSendWeeklyReport(userId: string) {
   // Only send on Mondays (day 1 in Vi timezone)
-  const now = new Date();
-  if (now.getDay() !== 1) return;
+  if (getLocalDayOfWeek() !== 1) return;
 
   if (!(await shouldSendNotification(userId, "weekly_report"))) {
     return;

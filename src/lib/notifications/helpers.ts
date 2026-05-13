@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { NotificationType } from "./types";
+import { getLocalDateKey, getLocalStartOfDay } from "@/lib/streak";
 
 export async function getNotifSettings(userId: string) {
   let settings = await prisma.notificationSetting.findUnique({ where: { userId } });
@@ -22,8 +23,7 @@ export function isQuietHours(
 }
 
 export async function getNotifCountToday(userId: string): Promise<number> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getLocalStartOfDay();
 
   return prisma.notificationLog.count({
     where: {
@@ -49,8 +49,7 @@ export async function wasNotifSentToday(
   userId: string,
   type: NotificationType
 ): Promise<boolean> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getLocalStartOfDay();
 
   const count = await prisma.notificationLog.count({
     where: {
@@ -80,8 +79,7 @@ export async function logNotification(
 // ─── Context-Aware Checks ──────────────────────────────────────────────
 
 export async function hasReviewedAnkiToday(userId: string): Promise<boolean> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getLocalStartOfDay();
   const count = await prisma.reviewLog.count({
     where: { userId, reviewedAt: { gte: startOfDay } },
   });
@@ -95,13 +93,12 @@ export async function hasCheckedInToday(userId: string): Promise<boolean> {
   });
   if (!user?.lastCheckIn) return false;
   
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getLocalStartOfDay();
   return user.lastCheckIn >= startOfDay;
 }
 
 export async function hasCompletedAllQuests(userId: string): Promise<boolean> {
-  const dateStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const dateStr = getLocalDateKey();
   
   // Total daily quests available (we assume 3 main daily quests typically, or query DailyQuestTemplate)
   const templates = await prisma.dailyQuestTemplate.count({

@@ -1,91 +1,66 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { logEvent } from "@/lib/analytics";
+import { awardExp } from "@/lib/exp";
 
-// Auto-initialize Phase 12 milestone tables on first call
-async function ensureMilestoneTables() {
-  // Create Milestone table
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "Milestone" (
-      "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
-      "key" TEXT NOT NULL,
-      "title" TEXT NOT NULL,
-      "description" TEXT NOT NULL,
-      "targetType" TEXT NOT NULL,
-      "targetValue" INTEGER NOT NULL,
-      "rewardDesc" TEXT NOT NULL DEFAULT '',
-      "expReward" INTEGER NOT NULL DEFAULT 0,
-      "order" INTEGER NOT NULL DEFAULT 0,
-      CONSTRAINT "Milestone_pkey" PRIMARY KEY ("id"),
-      CONSTRAINT "Milestone_key_key" UNIQUE ("key")
+const DEFAULT_MILESTONES = [
+  { key: "M01", title: "First Steps", description: "Complete your first Anki review session", targetType: "anki_sessions", targetValue: 1, rewardDesc: "Scholar's Badge", expReward: 100, order: 1 },
+  { key: "M02", title: "Word Collector", description: "Master 25 vocabulary cards", targetType: "cards_mastered", targetValue: 25, rewardDesc: "Lexicon Badge", expReward: 200, order: 2 },
+  { key: "M03", title: "First Conversation", description: "Complete your first AI speaking session", targetType: "ai_sessions", targetValue: 1, rewardDesc: "Speaker's Badge", expReward: 150, order: 3 },
+  { key: "M04", title: "Streak Starter", description: "Maintain a 3-day learning streak", targetType: "streak", targetValue: 3, rewardDesc: "Flame Badge I", expReward: 200, order: 4 },
+  { key: "M05", title: "Journal Keeper", description: "Write 5 journal entries", targetType: "journal_entries", targetValue: 5, rewardDesc: "Scribe's Badge", expReward: 250, order: 5 },
+  { key: "M06", title: "Word Master I", description: "Master 100 vocabulary cards", targetType: "cards_mastered", targetValue: 100, rewardDesc: "Centurion Badge", expReward: 500, order: 6 },
+  { key: "M07", title: "Weekly Champion", description: "Complete your first Weekly Challenge", targetType: "boss_completions", targetValue: 1, rewardDesc: "Boss Slayer Badge", expReward: 300, order: 7 },
+  { key: "M08", title: "Polyglot Streak", description: "Maintain a 7-day learning streak", targetType: "streak", targetValue: 7, rewardDesc: "Flame Badge II", expReward: 400, order: 8 },
+  { key: "M09", title: "Level Up", description: "Reach Level 5", targetType: "level", targetValue: 5, rewardDesc: "Knight's Badge", expReward: 500, order: 9 },
+  { key: "M10", title: "Word Master II", description: "Master 250 vocabulary cards", targetType: "cards_mastered", targetValue: 250, rewardDesc: "Elite Lexicon Badge", expReward: 750, order: 10 },
+  { key: "M11", title: "Iron Streak", description: "Maintain a 30-day learning streak", targetType: "streak", targetValue: 30, rewardDesc: "Iron Will Badge", expReward: 1000, order: 11 },
+  { key: "M12", title: "Legend", description: "Reach Level 10 - True Language Master", targetType: "level", targetValue: 10, rewardDesc: "Legendary Crown", expReward: 2000, order: 12 },
+] as const;
+
+async function ensureDefaultMilestones() {
+  const count = await prisma.milestone.count();
+  if (count > 0) return;
+
+  await prisma.$transaction(
+    DEFAULT_MILESTONES.map((m) =>
+      prisma.milestone.upsert({
+        where: { key: m.key },
+        update: {},
+        create: m,
+      })
     )
-  `);
-
-  // Create UserMilestone table
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "UserMilestone" (
-      "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
-      "userId" TEXT NOT NULL,
-      "milestoneId" TEXT NOT NULL,
-      "achievedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT "UserMilestone_pkey" PRIMARY KEY ("id"),
-      CONSTRAINT "UserMilestone_userId_milestoneId_key" UNIQUE ("userId","milestoneId")
-    )
-  `);
-
-  // Seed milestones if table is empty
-  const res = await prisma.$queryRaw<{ count: string }[]>`SELECT COUNT(*)::text as count FROM "Milestone"`;
-  if (parseInt(res[0].count) === 0) {
-    const milestones = [
-      { key: "M01", title: "First Steps", desc: "Complete your first Anki review session", type: "anki_sessions", val: 1, reward: "Scholar's Badge", exp: 100, ord: 1 },
-      { key: "M02", title: "Word Collector", desc: "Master 25 vocabulary cards", type: "cards_mastered", val: 25, reward: "Lexicon Badge", exp: 200, ord: 2 },
-      { key: "M03", title: "First Conversation", desc: "Complete your first AI speaking session", type: "ai_sessions", val: 1, reward: "Speaker's Badge", exp: 150, ord: 3 },
-      { key: "M04", title: "Streak Starter", desc: "Maintain a 3-day learning streak", type: "streak", val: 3, reward: "Flame Badge I", exp: 200, ord: 4 },
-      { key: "M05", title: "Journal Keeper", desc: "Write 5 journal entries", type: "journal_entries", val: 5, reward: "Scribe's Badge", exp: 250, ord: 5 },
-      { key: "M06", title: "Word Master I", desc: "Master 100 vocabulary cards", type: "cards_mastered", val: 100, reward: "Centurion Badge", exp: 500, ord: 6 },
-      { key: "M07", title: "Weekly Champion", desc: "Complete your first Weekly Challenge", type: "boss_completions", val: 1, reward: "Boss Slayer Badge", exp: 300, ord: 7 },
-      { key: "M08", title: "Polyglot Streak", desc: "Maintain a 7-day learning streak", type: "streak", val: 7, reward: "Flame Badge II", exp: 400, ord: 8 },
-      { key: "M09", title: "Level Up", desc: "Reach Level 5", type: "level", val: 5, reward: "Knight's Badge", exp: 500, ord: 9 },
-      { key: "M10", title: "Word Master II", desc: "Master 250 vocabulary cards", type: "cards_mastered", val: 250, reward: "Elite Lexicon Badge", exp: 750, ord: 10 },
-      { key: "M11", title: "Iron Streak", desc: "Maintain a 30-day learning streak", type: "streak", val: 30, reward: "Iron Will Badge", exp: 1000, ord: 11 },
-      { key: "M12", title: "Legend", desc: "Reach Level 10 — True Language Master", type: "level", val: 10, reward: "Legendary Crown", exp: 2000, ord: 12 },
-    ];
-    for (const m of milestones) {
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO "Milestone" ("id","key","title","description","targetType","targetValue","rewardDesc","expReward","order")
-         SELECT gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,$8
-         WHERE NOT EXISTS (SELECT 1 FROM "Milestone" WHERE "key" = $1)`,
-        m.key, m.title, m.desc, m.type, m.val, m.reward, m.exp, m.ord
-      );
-    }
-  }
+  );
 }
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    await ensureMilestoneTables();
+    await ensureDefaultMilestones();
 
-    const milestones = await prisma.$queryRaw<{
-      id: string; key: string; title: string; description: string;
-      targetType: string; targetValue: number; rewardDesc: string;
-      expReward: number; order: number;
-    }[]>`SELECT * FROM "Milestone" ORDER BY "order" ASC`;
+    const [milestones, userMilestones] = await Promise.all([
+      prisma.milestone.findMany({ orderBy: { order: "asc" } }),
+      prisma.userMilestone.findMany({
+        where: { userId: user.id },
+        select: { milestoneId: true, achievedAt: true, rewardClaimed: true },
+      }),
+    ]);
 
-    const userMilestones = await prisma.$queryRaw<{
-      milestoneId: string; achievedAt: Date;
-    }[]>`SELECT "milestoneId", "achievedAt" FROM "UserMilestone" WHERE "userId" = ${user.id}`;
-
-    const unlockedMap = new Map(userMilestones.map((um) => [um.milestoneId, um.achievedAt]));
+    const unlockedMap = new Map(userMilestones.map((um) => [um.milestoneId, um]));
 
     return NextResponse.json({
-      milestones: milestones.map((m) => ({
-        ...m,
-        unlocked: unlockedMap.has(m.id),
-        achievedAt: unlockedMap.get(m.id) ?? null,
-      })),
+      milestones: milestones.map((m) => {
+        const unlocked = unlockedMap.get(m.id);
+        return {
+          ...m,
+          unlocked: Boolean(unlocked),
+          achievedAt: unlocked?.achievedAt ?? null,
+          rewardClaimed: unlocked?.rewardClaimed ?? false,
+        };
+      }),
     });
   } catch (error) {
     console.error("GET /api/milestones error:", error);
@@ -95,57 +70,64 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    await ensureMilestoneTables();
+    await ensureDefaultMilestones();
 
     const userId = user.id;
-    const milestones = await prisma.$queryRaw<{
-      id: string; key: string; title: string; rewardDesc: string;
-      expReward: number; targetType: string; targetValue: number;
-    }[]>`SELECT * FROM "Milestone" ORDER BY "order" ASC`;
-
-    const existing = await prisma.$queryRaw<{ milestoneId: string }[]>`
-      SELECT "milestoneId" FROM "UserMilestone" WHERE "userId" = ${userId}
-    `;
+    const milestones = await prisma.milestone.findMany({ orderBy: { order: "asc" } });
+    const existing = await prisma.userMilestone.findMany({
+      where: { userId },
+      select: { milestoneId: true },
+    });
     const existingIds = new Set(existing.map((e) => e.milestoneId));
 
-    const [cardsMastered, aiSessions, journalCount, ankiSessions] = await Promise.all([
+    const [cardsMastered, aiSessions, journalCount, ankiSessions, bossCount] = await Promise.all([
       prisma.srsCard.count({ where: { userId, status: "mastered" } }),
       prisma.conversationSession.count({ where: { userId } }),
       prisma.journalEntry.count({ where: { userId } }),
-      prisma.activityLog.count({ where: { userId, source: "anki" } }),
+      prisma.learningEvent.count({ where: { userId, eventType: "anki_session_complete" } }),
+      prisma.weeklyBossCompletion.count({ where: { userId } }),
     ]);
-    // Boss completions — table may not exist, default to 0
-    const bossCount = 0;
 
-    const newlyUnlocked: typeof milestones = [];
+    const newlyUnlocked = [];
 
     for (const m of milestones) {
       if (existingIds.has(m.id)) continue;
 
       let achieved = false;
       switch (m.targetType) {
-        case "streak": achieved = (user.streak ?? 0) >= m.targetValue; break;
+        case "streak": achieved = user.streak >= m.targetValue; break;
         case "cards_mastered": achieved = cardsMastered >= m.targetValue; break;
         case "ai_sessions": achieved = aiSessions >= m.targetValue; break;
         case "journal_entries": achieved = journalCount >= m.targetValue; break;
         case "boss_completions": achieved = bossCount >= m.targetValue; break;
-        case "anki_sessions": achieved = ankiSessions >= 1; break;
-        case "level": achieved = (user.level ?? 1) >= m.targetValue; break;
+        case "anki_sessions": achieved = ankiSessions >= m.targetValue; break;
+        case "level": achieved = user.level >= m.targetValue; break;
       }
 
-      if (achieved) {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "UserMilestone" ("userId","milestoneId") VALUES ($1,$2) ON CONFLICT ("userId","milestoneId") DO NOTHING`,
-          userId, m.id
-        );
-        await prisma.user.update({
-          where: { id: userId },
-          data: { exp: { increment: m.expReward } },
+      if (!achieved) continue;
+
+      const inserted = await prisma.$transaction(async (tx) => {
+        const created = await tx.userMilestone.createMany({
+          data: { userId, milestoneId: m.id, rewardClaimed: true },
+          skipDuplicates: true,
         });
-        // Phase 14: log milestone_unlocked event
+        if (created.count === 0) return false;
+        await awardExp(tx, userId, m.expReward);
+        await tx.activityLog.create({
+          data: {
+            userId,
+            source: "milestone",
+            amount: m.expReward,
+            description: `Milestone unlocked: ${m.title}`,
+          },
+        });
+        return true;
+      });
+
+      if (inserted) {
         void logEvent(userId, "milestone_unlocked", undefined, undefined, undefined, {
           milestone_id: m.key,
           title: m.title,
@@ -157,7 +139,10 @@ export async function POST() {
 
     return NextResponse.json({
       newlyUnlocked: newlyUnlocked.map((m) => ({
-        key: m.key, title: m.title, rewardDesc: m.rewardDesc, expReward: m.expReward,
+        key: m.key,
+        title: m.title,
+        rewardDesc: m.rewardDesc,
+        expReward: m.expReward,
       })),
       count: newlyUnlocked.length,
     });

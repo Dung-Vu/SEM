@@ -247,7 +247,7 @@ model ConversationMessage {
 }
 
 model ConversationPrompt {
-  id             String   @id
+  id             String   @id @default(cuid())
   modeKey        String
   title          String
   systemPrompt   String
@@ -259,7 +259,7 @@ model ConversationPrompt {
 }
 
 model Milestone {
-  id            String          @id
+  id            String          @id @default(cuid())
   key           String          @unique
   title         String
   description   String
@@ -272,7 +272,7 @@ model Milestone {
 }
 
 model PushSubscription {
-  id        String   @id
+  id        String   @id @default(cuid())
   userId    String
   endpoint  String   @unique
   p256dh    String
@@ -282,7 +282,7 @@ model PushSubscription {
 }
 
 model ShadowScript {
-  id              String   @id
+  id              String   @id @default(cuid())
   title           String
   content         String
   level           String   @default("B1")
@@ -295,7 +295,7 @@ model ShadowScript {
 }
 
 model UserMilestone {
-  id            String    @id
+  id            String    @id @default(cuid())
   userId        String
   milestoneId   String
   achievedAt    DateTime  @default(now())
@@ -307,7 +307,7 @@ model UserMilestone {
 }
 
 model WeeklyBossCompletion {
-  id           String   @id
+  id           String   @id @default(cuid())
   userId       String
   weekNumber   Int
   year         Int

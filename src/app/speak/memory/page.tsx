@@ -9,7 +9,6 @@ import {
     TrendingUp,
     TrendingDown,
     Minus,
-    Loader2,
     Crosshair,
     Sparkles,
     AlertTriangle,

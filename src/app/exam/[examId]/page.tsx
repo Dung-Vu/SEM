@@ -47,7 +47,7 @@ export default function ExamPage() {
     const [listeningPassages, setListeningPassages] = useState<
         ListeningPassage[]
     >([]);
-    const [timeLimit, setTimeLimit] = useState(60);
+    const [, setTimeLimit] = useState(60);
     const [currentIdx, setCurrentIdx] = useState(0);
     const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
     const answersRef = useRef<Record<string, AnswerState>>({});

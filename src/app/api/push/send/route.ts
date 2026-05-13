@@ -1,25 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { sendPushToSubscription, type PushPayload } from "@/lib/push";
+import { assertInternalRequest } from "@/lib/server-security";
 
 // POST /api/push/send — send push notification to all user subscriptions
 // Body: { title, body, url, tag }
 // Used internally by cron/reminder logic
 export async function POST(req: NextRequest) {
   try {
+    const unauthorized = assertInternalRequest(req);
+    if (unauthorized) return unauthorized;
+
     const payload: PushPayload = await req.json();
 
     if (!payload.title || !payload.body) {
       return NextResponse.json({ error: "title and body required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Get all subscriptions for this user
-    const subs = await prisma.$queryRaw<
-      { endpoint: string; p256dh: string; auth: string }[]
-    >`SELECT "endpoint", "p256dh", "auth" FROM "PushSubscription" WHERE "userId" = ${user.id}`;
+    const subs = await prisma.pushSubscription.findMany({
+      where: { userId: user.id },
+      select: { id: true, endpoint: true, p256dh: true, auth: true },
+    });
 
     if (subs.length === 0) {
       return NextResponse.json({ sent: 0, message: "No subscriptions found" });
@@ -30,16 +36,13 @@ export async function POST(req: NextRequest) {
 
     for (const sub of subs) {
       const ok = await sendPushToSubscription(sub, payload);
-      if (ok) sent++;
-      else failed.push(sub.endpoint.slice(-20)); // last 20 chars for logging
+      if (ok === true) sent++;
+      else if (ok === "expired") failed.push(sub.id);
     }
 
-    // Clean up failed subscriptions (likely expired)
-    for (const endpoint of failed) {
-      await prisma.$executeRawUnsafe(
-        `DELETE FROM "PushSubscription" WHERE "endpoint" LIKE $1`,
-        `%${endpoint}`
-      );
+    // Clean up only subscriptions confirmed expired by the push provider.
+    if (failed.length > 0) {
+      await prisma.pushSubscription.deleteMany({ where: { id: { in: failed } } });
     }
 
     return NextResponse.json({ sent, failed: failed.length });
@@ -51,6 +54,9 @@ export async function POST(req: NextRequest) {
 
 // GET /api/push/send?type=reminder — send daily reminder (call from cron or test)
 export async function GET(req: NextRequest) {
+  const unauthorized = assertInternalRequest(req);
+  if (unauthorized) return unauthorized;
+
   const type = new URL(req.url).searchParams.get("type") || "reminder";
 
   const payloads: Record<string, PushPayload> = {
@@ -101,10 +107,21 @@ export async function GET(req: NextRequest) {
 
   const payload = payloads[type] ?? payloads.reminder;
 
-  // Delegate to the POST handler
-  return fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }).then((r) => r.json()).then((data) => NextResponse.json(data));
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const subs = await prisma.pushSubscription.findMany({
+    where: { userId: user.id },
+    select: { id: true, endpoint: true, p256dh: true, auth: true },
+  });
+  let sent = 0;
+  const expired: string[] = [];
+  for (const sub of subs) {
+    const result = await sendPushToSubscription(sub, payload);
+    if (result === true) sent++;
+    if (result === "expired") expired.push(sub.id);
+  }
+  if (expired.length > 0) {
+    await prisma.pushSubscription.deleteMany({ where: { id: { in: expired } } });
+  }
+  return NextResponse.json({ sent, failed: expired.length });
 }

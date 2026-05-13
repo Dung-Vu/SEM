@@ -8,11 +8,21 @@ interface BeforeInstallPromptEvent extends Event {
     userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+interface WindowWithMSStream extends Window {
+    MSStream?: unknown;
+}
+
 export function InstallPrompt() {
     const [deferredPrompt, setDeferredPrompt] =
         useState<BeforeInstallPromptEvent | null>(null);
     const [showPrompt, setShowPrompt] = useState(false);
-    const [isIOS, setIsIOS] = useState(false);
+    const [isIOS] = useState(() => {
+        if (typeof window === "undefined") return false;
+        return (
+            /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+            !(window as WindowWithMSStream).MSStream
+        );
+    });
 
     useEffect(() => {
         // SSR guard
@@ -34,13 +44,7 @@ export function InstallPrompt() {
             }
         }
 
-        // Check if iOS
-        const iOS =
-            /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-            !(window as any).MSStream;
-        setIsIOS(iOS);
-
-        if (!iOS) {
+        if (!isIOS) {
             const handleBeforeInstallPrompt = (e: Event) => {
                 e.preventDefault();
                 setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -62,20 +66,21 @@ export function InstallPrompt() {
                     handleBeforeInstallPrompt,
                 );
             };
-        } else {
-            // iOS: show after 3 seconds
-            setTimeout(() => {
-                setShowPrompt(true);
-            }, 3000);
         }
-    }, []);
+
+        // iOS: show after 3 seconds
+        const timer = setTimeout(() => {
+            setShowPrompt(true);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, [isIOS]);
 
     const handleInstall = async () => {
         if (!deferredPrompt) return;
 
         try {
             await deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
+            await deferredPrompt.userChoice;
 
             setShowPrompt(false);
             setDeferredPrompt(null);

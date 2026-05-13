@@ -4,11 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
     ArrowLeft,
-    TrendingUp,
     Trophy,
-    BarChart3,
     AlertTriangle,
-    Loader2,
 } from "lucide-react";
 
 interface HistoryData {

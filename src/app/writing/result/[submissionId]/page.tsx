@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
     ArrowLeft,
-    Loader2,
     Trophy,
     TrendingUp,
     TrendingDown,
@@ -102,7 +101,6 @@ function SubmissionViewer({
 
     // Build highlighted segments
     const segments: { text: string; errorIndex: number | null }[] = [];
-    let remaining = content;
 
     // Sort errors by their position in the text (first occurrence)
     const errorPositions = errors

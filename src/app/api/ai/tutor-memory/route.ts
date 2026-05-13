@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { getTutorMemory, updateTutorMemory } from "@/lib/tutor-memory";
 import { recommendNextSession } from "@/lib/topic-recommendation";
 
 // GET — Fetch tutor memory + recommendations
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const [memory, recommendations] = await Promise.all([
@@ -63,7 +64,7 @@ export async function GET() {
 // PATCH — Update tutor settings (personality config)
 export async function PATCH(request: Request) {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = await request.json();

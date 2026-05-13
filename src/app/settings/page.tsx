@@ -21,8 +21,6 @@ import {
     Castle,
     Swords,
     Crown,
-    Sun,
-    Moon,
 } from "lucide-react";
 
 interface Settings {
@@ -30,6 +28,11 @@ interface Settings {
     ankiReviewLimit: number;
     reminderTime: string;
     notificationsEnabled: boolean;
+}
+
+interface RuntimeAiStatus {
+    aiModel: string;
+    aiConfigured: boolean;
 }
 
 const KT = [
@@ -631,7 +634,7 @@ export default function SettingsPage() {
         reminderTime: "08:00",
         notificationsEnabled: false,
     });
-    const [aiModel, setAiModel] = useState("qwen3.5-plus");
+    const [runtimeAi, setRuntimeAi] = useState<RuntimeAiStatus | null>(null);
     const [toast, setToast] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
     const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -639,10 +642,20 @@ export default function SettingsPage() {
     useEffect(() => {
         const stored = localStorage.getItem("eq-settings");
         if (stored) setSettings(JSON.parse(stored));
-        setAiModel(localStorage.getItem("eq-ai-model") ?? "qwen3.5-plus");
         setTheme(
             (localStorage.getItem("eq-theme") ?? "dark") as "dark" | "light",
         );
+        fetch("/api/user")
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.aiModel) {
+                    setRuntimeAi({
+                        aiModel: data.aiModel,
+                        aiConfigured: Boolean(data.aiConfigured),
+                    });
+                }
+            })
+            .catch(() => {});
     }, []);
 
     const toggleTheme = () => {
@@ -688,7 +701,7 @@ export default function SettingsPage() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `english-quest-export-${new Date().toISOString().slice(0, 10)}.json`;
+            a.download = `english-quest-export-${new Date().toLocaleDateString("sv-SE")}.json`;
             a.click();
             URL.revokeObjectURL(url);
             setToast("📦 Data exported!");
@@ -1238,52 +1251,39 @@ export default function SettingsPage() {
                 className="glass-card animate-fade-in-up stagger-3"
                 style={{ padding: "16px", marginBottom: "12px" }}
             >
-                <SectionHeader color="var(--violet)" title="AI Model" />
+                <SectionHeader color="var(--violet)" title="AI Runtime" />
                 <div
                     style={{
-                        display: "flex",
-                        gap: "6px",
+                        padding: "12px",
+                        borderRadius: "12px",
+                        background: "var(--bg-raised)",
+                        border: "1px solid var(--border-subtle)",
                         marginBottom: "10px",
                     }}
                 >
-                    {["qwen3.5-plus", "qwen3-max", "qwen-turbo"].map(
-                        (model) => (
-                            <button
-                                key={model}
-                                onClick={() => {
-                                    localStorage.setItem("eq-ai-model", model);
-                                    setAiModel(model);
-                                    setToast(`Model: ${model}`);
-                                    setTimeout(() => setToast(null), 2000);
-                                }}
-                                style={{
-                                    flex: 1,
-                                    padding: "9px 4px",
-                                    borderRadius: "10px",
-                                    cursor: "pointer",
-                                    fontFamily: "var(--font-mono)",
-                                    fontSize: "10px",
-                                    fontWeight: 600,
-                                    background:
-                                        aiModel === model
-                                            ? "rgba(30,10,60,0.6)"
-                                            : "var(--bg-raised)",
-                                    color:
-                                        aiModel === model
-                                            ? "var(--violet)"
-                                            : "var(--text-muted)",
-                                    border: `1px solid ${aiModel === model ? "rgba(167,139,250,0.3)" : "transparent"}`,
-                                    transition: "all 0.15s",
-                                }}
-                            >
-                                {model
-                                    .replace("qwen", "Q")
-                                    .replace("-plus", "+")
-                                    .replace("-max", "★")
-                                    .replace("-turbo", "⚡")}
-                            </button>
-                        ),
-                    )}
+                    <p
+                        style={{
+                            margin: "0 0 4px",
+                            fontSize: "12px",
+                            color: "var(--text-muted)",
+                            fontFamily: "var(--font-body)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.06em",
+                        }}
+                    >
+                        Current model
+                    </p>
+                    <p
+                        style={{
+                            margin: 0,
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            color: "var(--violet)",
+                            fontFamily: "var(--font-mono)",
+                        }}
+                    >
+                        {runtimeAi?.aiModel ?? "Loading..."}
+                    </p>
                 </div>
                 <div
                     style={{
@@ -1297,9 +1297,13 @@ export default function SettingsPage() {
                             width: 8,
                             height: 8,
                             borderRadius: "50%",
-                            background: "var(--emerald)",
+                            background: runtimeAi?.aiConfigured
+                                ? "var(--emerald)"
+                                : "var(--ruby)",
                             display: "inline-block",
-                            boxShadow: "0 0 6px var(--emerald)",
+                            boxShadow: runtimeAi?.aiConfigured
+                                ? "0 0 6px var(--emerald)"
+                                : "0 0 6px var(--ruby)",
                         }}
                     />
                     <span
@@ -1309,9 +1313,23 @@ export default function SettingsPage() {
                             fontFamily: "var(--font-body)",
                         }}
                     >
-                        Bailian API · Connected
+                        {runtimeAi?.aiConfigured
+                            ? "Bailian API · Connected"
+                            : "AI API key not configured"}
                     </span>
                 </div>
+                <p
+                    style={{
+                        margin: "10px 0 0",
+                        fontSize: "11px",
+                        color: "var(--text-muted)",
+                        fontFamily: "var(--font-body)",
+                        lineHeight: 1.5,
+                    }}
+                >
+                    Runtime model is controlled by server environment, not by
+                    browser local storage.
+                </p>
             </div>
 
             {/* Quick Links */}

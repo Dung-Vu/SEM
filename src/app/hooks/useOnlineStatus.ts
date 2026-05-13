@@ -2,14 +2,18 @@
 
 import { useEffect, useState } from "react";
 
+interface NavigatorWithStandalone extends Navigator {
+    standalone?: boolean;
+}
+
 export function useOnlineStatus() {
-    const [isOnline, setIsOnline] = useState(true);
+    const [isOnline, setIsOnline] = useState(() =>
+        typeof navigator === "undefined" ? true : navigator.onLine,
+    );
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
-
-        setIsOnline(navigator.onLine);
 
         window.addEventListener("online", handleOnline);
         window.addEventListener("offline", handleOffline);
@@ -24,12 +28,19 @@ export function useOnlineStatus() {
 }
 
 export function useInstallStatus() {
-    const [isInstalled, setIsInstalled] = useState(false);
+    const [isInstalled, setIsInstalled] = useState(() => {
+        if (typeof window === "undefined") return false;
+        const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+        const isIOSStandalone =
+            (window.navigator as NavigatorWithStandalone).standalone === true;
+        return isStandalone || isIOSStandalone;
+    });
 
     useEffect(() => {
         const checkInstalled = () => {
             const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
-            const isIOSStandalone = (window.navigator as any).standalone === true;
+            const isIOSStandalone =
+                (window.navigator as NavigatorWithStandalone).standalone === true;
             setIsInstalled(isStandalone || isIOSStandalone);
         };
 

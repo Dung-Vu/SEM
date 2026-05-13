@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Flame, Trophy } from "lucide-react";
+import { Flame } from "lucide-react";
 
 const STREAK_THEMES: Record<
     number,

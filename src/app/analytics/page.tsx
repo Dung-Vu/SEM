@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Brain, Loader2 } from "lucide-react";
 import { BookOpen, Mic2, PenLine, Headphones } from "lucide-react";
+import { addLocalDays, getLocalDateKey, getLocalDayOfWeek } from "@/lib/streak";
 import {
     OverallScoreBanner,
     SkillRadarConsistency,
@@ -278,20 +279,18 @@ export default function AnalyticsPage() {
 
     const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const barData = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        const key = d.toISOString().slice(0, 10);
+        const d = addLocalDays(new Date(), -(6 - i));
+        const key = getLocalDateKey(d);
         return {
-            day: weekDays[d.getDay()],
+            day: weekDays[getLocalDayOfWeek(d)],
             min: weeklyActivity[key]?.totalMin ?? 0,
         };
     });
 
     const heatmapCells: { date: string; min: number }[] = [];
     for (let i = 89; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = d.toISOString().slice(0, 10);
+        const d = addLocalDays(new Date(), -i);
+        const key = getLocalDateKey(d);
         heatmapCells.push({ date: key, min: heatmap[key]?.totalMin ?? 0 });
     }
     const heatmapWeeks: { date: string; min: number }[][] = [];

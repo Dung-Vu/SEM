@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 
 // GET — Get a single conversation with all messages
 export async function GET(
@@ -8,6 +9,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const conversation = await prisma.conversationSession.findUnique({
       where: { id },
@@ -18,7 +21,7 @@ export async function GET(
       },
     });
 
-    if (!conversation) {
+    if (!conversation || conversation.userId !== user.id) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 

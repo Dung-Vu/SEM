@@ -8,9 +8,6 @@ import {
     PlaneTakeoff,
     Swords,
     PenLine,
-    Mic2,
-    Timer,
-    MessageSquare,
     Inbox,
 } from "lucide-react";
 

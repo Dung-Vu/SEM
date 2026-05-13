@@ -92,7 +92,6 @@ export async function calculateLearningProfile(userId: string) {
   const now = new Date();
   const since30 = new Date(now.getTime() - 30 * 864e5);
   const since7  = new Date(now.getTime() - 7 * 864e5);
-  const since14 = new Date(now.getTime() - 14 * 864e5);
 
   // ── Anki / Vocab ─────────────────────────────────────────────────────
   const reviewLogs30 = await prisma.reviewLog.findMany({

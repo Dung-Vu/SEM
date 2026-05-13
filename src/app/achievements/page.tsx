@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { TrendingUp, Swords, Trophy, CheckCircle2 } from "lucide-react";
+import { Swords, CheckCircle2 } from "lucide-react";
 
 interface Achievement {
     id: string;

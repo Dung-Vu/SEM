@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
+import { getLocalDateKey } from "@/lib/streak";
 
 // GET /api/writing/stats — Aggregated writing statistics
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const submissions = await prisma.writingSubmission.findMany({
@@ -76,7 +78,7 @@ export async function GET() {
 
     // Score history for chart (last 20)
     const scoreHistory = submissions.slice(0, 20).reverse().map(s => ({
-      date: s.submittedAt.toISOString().slice(0, 10),
+      date: getLocalDateKey(s.submittedAt),
       overall: s.overallScore,
       grammar: s.grammarScore,
       vocab: s.vocabScore,

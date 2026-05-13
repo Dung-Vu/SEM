@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { PenLine, BookOpen, Bot, Bookmark } from "lucide-react";
+import { PenLine, Bot } from "lucide-react";
+import { addLocalDays, getLocalDateKey } from "@/lib/streak";
 
 interface JournalEntry {
     id: string;
@@ -76,7 +77,7 @@ export default function JournalPage() {
                 },
             );
             setCalendarDates(data.calendarDates ?? []);
-            const today = new Date().toISOString().slice(0, 10);
+            const today = getLocalDateKey();
             const todayEntry = data.entries?.find(
                 (e: JournalEntry) => e.date === today,
             );
@@ -173,9 +174,7 @@ export default function JournalPage() {
         hasEntry: boolean;
     }[] = [];
     for (let i = 29; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().slice(0, 10);
+        const dateStr = getLocalDateKey(addLocalDays(new Date(), -i));
         const isToday = i === 0;
         calendarDays.push({
             date: dateStr,
@@ -201,10 +200,6 @@ export default function JournalPage() {
             </div>
         );
     }
-
-    const diffCfg =
-        DIFFICULTY_CONFIG[difficulty as keyof typeof DIFFICULTY_CONFIG] ??
-        DIFFICULTY_CONFIG.medium;
 
     return (
         <div style={{ paddingTop: "8px", paddingBottom: "16px" }}>

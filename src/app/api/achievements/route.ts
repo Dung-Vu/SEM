@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp } from "@/lib/exp";
 
 // GET — list all achievements with unlock status
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const achievements = await prisma.achievement.findMany({ orderBy: { id: "asc" } });
@@ -48,24 +49,24 @@ export async function GET() {
     for (const a of enriched) {
       if (!a.unlocked && a.progress && a.progress.current >= a.progress.target) {
         const bonusExp = 50;
-        const newExp = user.exp + bonusExp;
-        const newLevel = getLevelFromExp(newExp);
 
-        await prisma.$transaction([
-          prisma.userAchievement.create({
+        const inserted = await prisma.$transaction(async (tx) => {
+          const created = await tx.userAchievement.createMany({
             data: { userId: user.id, achievementId: a.id },
-          }),
-          prisma.user.update({
-            where: { id: user.id },
-            data: { exp: newExp, level: newLevel },
-          }),
-          prisma.activityLog.create({
-            data: { userId: user.id, source: "achievement", amount: bonusExp, description: `🏆 ${a.name}` },
-          }),
-        ]);
+            skipDuplicates: true,
+          });
+          if (created.count === 0) return false;
+          await awardExp(tx, user.id, bonusExp);
+          await tx.activityLog.create({
+            data: { userId: user.id, source: "achievement", amount: bonusExp, description: `Achievement: ${a.name}` },
+          });
+          return true;
+        });
 
-        a.unlocked = true;
-        newlyUnlocked.push(a.name);
+        if (inserted) {
+          a.unlocked = true;
+          newlyUnlocked.push(a.name);
+        }
       }
     }
 

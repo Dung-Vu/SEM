@@ -1,9 +1,7 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient({
-  datasourceUrl: "file:./prisma/dev.db",
-});
+const prisma = new PrismaClient();
 
 const achievements = [
   { key: "first_flame", name: "First Flame", description: "Streak 7 ngày đầu tiên", icon: "🔥", condition: "streak >= 7" },

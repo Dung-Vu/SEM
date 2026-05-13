@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp } from "@/lib/exp";
+import { getLocalDateKey } from "@/lib/streak";
 
 // GET — List reading sessions
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const sessions = await prisma.activityLog.findMany({
@@ -28,7 +30,7 @@ export async function GET() {
           minutes: parseInt(parts[2] || "0"),
           pages: parseInt(parts[3] || "0"),
           notes: parts[4] || "",
-          date: s.createdAt.toISOString().slice(0, 10),
+          date: getLocalDateKey(s.createdAt),
         };
       }),
     });
@@ -42,41 +44,36 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, category, minutes, pages, notes } = body as {
-      title: string;
-      category: string;
-      minutes: number;
-      pages: number;
-      notes: string;
-    };
+    const { title, category, minutes, pages, notes } = body as Record<string, unknown>;
 
-    if (!title) {
+    const safeMinutes = Math.min(240, Math.max(1, Math.round(Number(minutes) || 1)));
+    const safePages = Math.max(0, Math.round(Number(pages) || 0));
+
+    if (typeof title !== "string" || !title.trim()) {
       return NextResponse.json({ error: "Title required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // EXP: 1 EXP per minute, min 5
-    const expGain = Math.max(5, Math.floor(minutes * 1));
-    const description = `${title}|${category}|${minutes}|${pages}|${notes || ""}`;
-    const newExp = user.exp + expGain;
-    const newLevel = getLevelFromExp(newExp);
+    const expGain = Math.max(5, safeMinutes);
+    const safeTitle = title.trim().slice(0, 200);
+    const safeCategory = typeof category === "string" && category.trim() ? category.trim().slice(0, 60) : "book";
+    const safeNotes = typeof notes === "string" ? notes.trim().slice(0, 1000) : "";
+    const description = `${safeTitle}|${safeCategory}|${safeMinutes}|${safePages}|${safeNotes}`;
 
-    await prisma.$transaction([
-      prisma.activityLog.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.activityLog.create({
         data: {
           userId: user.id,
           source: "reading",
           amount: expGain,
           description,
         },
-      }),
-      prisma.user.update({
-        where: { id: user.id },
-        data: { exp: newExp, level: newLevel },
-      }),
-    ]);
+      });
+      await awardExp(tx, user.id, expGain);
+    });
 
     return NextResponse.json({ success: true, expGain });
   } catch (error) {

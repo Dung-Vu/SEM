@@ -18,9 +18,6 @@ export async function checkAndSendAnkiReminder(userId: string) {
 }
 
 async function getDueCardCount(userId: string): Promise<number> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
   // Example logic (adapt based on exactly how Anki due is calculated in Phase 5)
   // Usually where nextReview <= now
   return prisma.srsCard.count({

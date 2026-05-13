@@ -1,18 +1,17 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { generateWeeklyReport } from "@/lib/weekly-report";
+import { getLocalStartOfWeek } from "@/lib/streak";
 
 // GET /api/analytics/weekly-report — get current week's report (generates if not exists)
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Check if we already generated one this week
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay()); // start of this week (Sunday)
-    weekStart.setHours(0, 0, 0, 0);
+    const weekStart = getLocalStartOfWeek();
 
     const existing = await prisma.weeklyReport.findFirst({
       where: { userId: user.id, createdAt: { gte: weekStart } },
@@ -68,13 +67,10 @@ export async function GET() {
 // PATCH /api/analytics/weekly-report — mark current week's report as read
 export async function PATCH() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    weekStart.setHours(0, 0, 0, 0);
+    const weekStart = getLocalStartOfWeek();
 
     await prisma.weeklyReport.updateMany({
       where: { userId: user.id, createdAt: { gte: weekStart }, isRead: false },

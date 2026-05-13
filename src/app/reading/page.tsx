@@ -12,6 +12,7 @@ import {
     Library,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { getLocalDateKey } from "@/lib/streak";
 
 interface ReadingSession {
     id: string;
@@ -115,7 +116,7 @@ export default function ReadingTrackerPage() {
     };
 
     const todayMinutes = sessions
-        .filter((s) => s.date === new Date().toISOString().slice(0, 10))
+        .filter((s) => s.date === getLocalDateKey())
         .reduce((sum, s) => sum + s.minutes, 0);
     const totalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
     const totalPages = sessions.reduce((sum, s) => sum + s.pages, 0);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
     Trophy,
@@ -11,7 +11,6 @@ import {
     CheckCircle2,
     XCircle,
     MinusCircle,
-    Loader2,
     ChevronDown,
     ChevronUp,
     RefreshCw,
@@ -66,7 +65,6 @@ type ReviewFilter = "all" | "wrong" | "skipped" | "flagged";
 
 export default function ExamResultPage() {
     const params = useParams();
-    const router = useRouter();
     const examId = params.examId as string;
 
     const [result, setResult] = useState<ExamResult | null>(null);
@@ -726,7 +724,7 @@ export default function ExamResultPage() {
                         ))}
                     </div>
 
-                    {filteredAnswers.map((a, idx) => {
+                    {filteredAnswers.map((a) => {
                         const expanded = expandedQ === a.questionId;
                         const icon = a.isCorrect
                             ? "✅"

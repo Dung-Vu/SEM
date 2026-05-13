@@ -1,4 +1,6 @@
 // Level thresholds from game design
+import type { Prisma, PrismaClient } from "@prisma/client";
+
 const LEVEL_THRESHOLDS = [
   { minLevel: 1, maxLevel: 10, title: "Beginner Warrior", cefr: "A1-A2", kingdom: "Beginner Village", expStart: 0, expEnd: 5000 },
   { minLevel: 11, maxLevel: 25, title: "Grammar Knight", cefr: "B1", kingdom: "Grammar Forest", expStart: 5000, expEnd: 20000 },
@@ -71,4 +73,34 @@ export function getStreakBonus(streak: number): number {
   if (streak >= 7) return 1.25;
   if (streak >= 3) return 1.1;
   return 1.0;
+}
+
+type TxClient = Prisma.TransactionClient | PrismaClient;
+
+export async function awardExp(
+  tx: TxClient,
+  userId: string,
+  amount: number
+): Promise<{ exp: number; level: number; leveledUp: boolean }> {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("EXP amount must be a positive number");
+  }
+
+  const user = await tx.user.update({
+    where: { id: userId },
+    data: { exp: { increment: Math.round(amount) } },
+    select: { exp: true, level: true },
+  });
+
+  const level = getLevelFromExp(user.exp);
+  if (level !== user.level) {
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: { level },
+      select: { exp: true, level: true },
+    });
+    return { exp: updated.exp, level: updated.level, leveledUp: level > user.level };
+  }
+
+  return { exp: user.exp, level: user.level, leveledUp: false };
 }

@@ -1,12 +1,19 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+﻿import { NextResponse } from "next/server";
 import { getLevelFromExp, getExpForNextLevel, getKingdomInfo, getStreakBonus } from "@/lib/exp";
 import { calculateStreak } from "@/lib/streak";
+import { getCurrentUser } from "@/lib/current-user";
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst({
-      include: { stats: true },
+    const user = await getCurrentUser({
+      id: true,
+      username: true,
+      level: true,
+      exp: true,
+      streak: true,
+      lastCheckIn: true,
+      createdAt: true,
+      stats: true,
     });
 
     if (!user) {
@@ -32,6 +39,8 @@ export async function GET() {
       levelProgress,
       kingdom,
       streakBonus,
+      aiModel: process.env.AI_MODEL || "qwen3.5-plus",
+      aiConfigured: Boolean(process.env.AI_API_KEY),
     });
   } catch (error) {
     console.error("GET /api/user error:", error);

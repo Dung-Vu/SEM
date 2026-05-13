@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp, getKingdomInfo } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp, getKingdomInfo } from "@/lib/exp";
 import { sendLevelUpNotification } from "@/lib/notifications/level-up";
+import { assertInternalRequest } from "@/lib/server-security";
 
 export async function POST(request: NextRequest) {
   try {
+    const unauthorized = assertInternalRequest(request);
+    if (unauthorized) return unauthorized;
+
     const body = await request.json();
     const { source, amount, description } = body as {
       source: string;
@@ -19,47 +24,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const newExp = user.exp + amount;
-    const newLevel = getLevelFromExp(newExp);
-    const leveledUp = newLevel > user.level;
-
-    // Use transaction for atomic update
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await awardExp(tx, user.id, amount);
+      await tx.activityLog.create({
         data: {
-          exp: newExp,
-          level: newLevel,
+          userId: user.id,
+          source,
+          amount,
+          description: description ?? `+${amount} EXP from ${source}`,
         },
-      }),
-    ]);
-
-    await prisma.activityLog.create({
-      data: {
-        userId: user.id,
-        source,
-        amount,
-        description: description ?? `+${amount} EXP from ${source}`,
-      },
+      });
+      return updated;
     });
 
-    if (leveledUp) {
-      const info = getKingdomInfo(newLevel);
-      await sendLevelUpNotification(user.id, newLevel, info.title).catch(err => {
+    if (result.leveledUp) {
+      const info = getKingdomInfo(result.level);
+      await sendLevelUpNotification(user.id, result.level, info.title).catch(err => {
         console.error("Failed to send level up notification:", err);
       });
     }
 
     return NextResponse.json({
       success: true,
-      exp: newExp,
-      level: newLevel,
-      leveledUp,
+      exp: result.exp,
+      level: result.level,
+      leveledUp: result.leveledUp,
       expGain: amount,
     });
   } catch (error) {

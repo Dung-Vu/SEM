@@ -101,12 +101,10 @@ export function AIProgressBar({
     style?: React.CSSProperties;
 }) {
     const [progress, setProgress] = useState(0);
+    const displayProgress = done ? 100 : progress;
 
     useEffect(() => {
-        if (done) {
-            setProgress(100);
-            return;
-        }
+        if (done) return;
         // Schedule: fast at start, decelerating
         const schedule = [
             { target: 30, delay: 500 },
@@ -137,7 +135,7 @@ export function AIProgressBar({
             <div
                 style={{
                     height: "100%",
-                    width: `${progress}%`,
+                    width: `${displayProgress}%`,
                     borderRadius: 2,
                     background: "var(--gold)",
                     transition: done

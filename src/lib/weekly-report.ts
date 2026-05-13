@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getLocalDateKey, getLocalDayOfWeekFromDateKey, getLocalWeekInfo } from "@/lib/streak";
 
 interface WeeklyReportData {
   weekNumber: number;
@@ -27,15 +28,6 @@ interface VsLastWeek {
   studyTime: number;
   exp: number;
   consistency: number;
-}
-
-function getWeekNumber(date: Date): { weekNumber: number; year: number } {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return { weekNumber, year: d.getUTCFullYear() };
 }
 
 function formatPeriod(weekAgo: Date, now: Date): string {
@@ -83,7 +75,7 @@ export async function generateWeeklyReport(userId: string): Promise<WeeklyReport
   const since7 = new Date(now.getTime() - 7 * 864e5);
   const since14 = new Date(now.getTime() - 14 * 864e5);
 
-  const { weekNumber, year } = getWeekNumber(now);
+  const { weekNumber, year } = getLocalWeekInfo(now);
   const period = formatPeriod(since7, now);
 
   // Total study minutes from activity logs
@@ -128,12 +120,12 @@ export async function generateWeeklyReport(userId: string): Promise<WeeklyReport
   const dayMap: Record<string, number> = {};
   const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
   for (const log of thisWeekLogs) {
-    const key = log.createdAt.toISOString().slice(0, 10);
+    const key = getLocalDateKey(log.createdAt);
     dayMap[key] = (dayMap[key] ?? 0) + log.amount;
   }
   const bestDayKey = Object.keys(dayMap).reduce((a, b) => (dayMap[a] >= dayMap[b] ? a : b), Object.keys(dayMap)[0] ?? "");
   const bestDay = bestDayKey
-    ? `${dayNames[new Date(bestDayKey).getDay()]} — ${dayMap[bestDayKey]} EXP`
+    ? `${dayNames[getLocalDayOfWeekFromDateKey(bestDayKey)]} — ${dayMap[bestDayKey]} EXP`
     : "Chưa có data";
 
   // Vs last week — calculate last week's study time with same formula

@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getLevelFromExp, getExpForNextLevel, getKingdomInfo } from "@/lib/exp";
+import { addLocalDays, getLocalDateKey, getLocalStartOfWeek } from "@/lib/streak";
+import { getCurrentUser } from "@/lib/current-user";
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst({
-      include: { stats: true },
+    const user = await getCurrentUser({
+      id: true,
+      exp: true,
+      createdAt: true,
+      lastCheckIn: true,
+      stats: true,
     });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
@@ -25,17 +31,15 @@ export async function GET() {
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
     });
-    const daysActive = new Set(activities.map((a) => a.createdAt.toISOString().slice(0, 10))).size;
+    const daysActive = new Set(activities.map((a) => getLocalDateKey(a.createdAt))).size;
     const daysSinceStart = Math.max(1, Math.ceil((Date.now() - user.createdAt.getTime()) / 86400000));
 
     // EXP by week (last 12 weeks)
     const expByWeek: { week: string; exp: number }[] = [];
+    const currentWeekStart = getLocalStartOfWeek();
     for (let i = 11; i >= 0; i--) {
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - (i * 7 + weekStart.getDay()));
-      weekStart.setHours(0, 0, 0, 0);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekStart = addLocalDays(currentWeekStart, -(i * 7));
+      const weekEnd = addLocalDays(weekStart, 7);
       const weekExp = activities
         .filter((a) => a.createdAt >= weekStart && a.createdAt < weekEnd)
         .reduce((s, a) => s + a.amount, 0);
@@ -48,7 +52,7 @@ export async function GET() {
     // Heatmap — last 365 days
     const heatmapData: Record<string, number> = {};
     for (const a of activities) {
-      const date = a.createdAt.toISOString().slice(0, 10);
+      const date = getLocalDateKey(a.createdAt);
       heatmapData[date] = (heatmapData[date] || 0) + a.amount;
     }
 
@@ -66,7 +70,7 @@ export async function GET() {
     const resourcesDone = await prisma.resource.count({ where: { userId: user.id, status: "done" } });
 
     // Quests completed today
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalDateKey();
     const questsDoneToday = await prisma.questProgress.count({
       where: { userId: user.id, date: today, completed: true },
     });

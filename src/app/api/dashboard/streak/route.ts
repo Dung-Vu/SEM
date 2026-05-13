@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { calculateStreak } from "@/lib/streak";
+import { calculateStreak, getLocalDateKey } from "@/lib/streak";
 import { getStreakBonus } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
 
 /**
  * 17.5 — Dashboard Streak endpoint
@@ -10,11 +10,9 @@ import { getStreakBonus } from "@/lib/exp";
  */
 export async function GET() {
     try {
-        const user = await prisma.user.findFirst({
-            select: {
-                lastCheckIn: true,
-                streak: true,
-            },
+        const user = await getCurrentUser({
+            lastCheckIn: true,
+            streak: true,
         });
 
         if (!user) {
@@ -24,13 +22,10 @@ export async function GET() {
         const streak = calculateStreak(user.lastCheckIn, user.streak);
         const streakBonus = getStreakBonus(streak);
 
-        // Determine if checked in today (UTC+7)
-        const nowVN = new Date(Date.now() + 7 * 3600_000);
-        const todayStr = nowVN.toISOString().slice(0, 10);
+        const todayStr = getLocalDateKey();
         let checkedInToday = false;
         if (user.lastCheckIn) {
-            const lastVN = new Date(user.lastCheckIn.getTime() + 7 * 3600_000);
-            checkedInToday = lastVN.toISOString().slice(0, 10) === todayStr;
+            checkedInToday = getLocalDateKey(user.lastCheckIn) === todayStr;
         }
 
         return NextResponse.json(

@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+﻿import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/current-user";
 import { calculateLearningProfile } from "@/lib/profile-engine";
 
 // POST /api/analytics/recalculate — trigger recalculation for all or current user
 export async function POST() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const result = await calculateLearningProfile(user.id);

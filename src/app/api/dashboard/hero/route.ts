@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getLevelFromExp, getExpForNextLevel, getKingdomInfo } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
 
 /**
  * 17.5 — Dashboard Hero endpoint
@@ -9,13 +9,11 @@ import { getLevelFromExp, getExpForNextLevel, getKingdomInfo } from "@/lib/exp";
  */
 export async function GET() {
     try {
-        const user = await prisma.user.findFirst({
-            select: {
-                username: true,
-                exp: true,
-                level: true,
-                createdAt: true,
-            },
+        const user = await getCurrentUser({
+            username: true,
+            exp: true,
+            level: true,
+            createdAt: true,
         });
 
         if (!user) {

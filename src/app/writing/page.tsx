@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import {
     PenTool,
     Loader2,
-    Brain,
     ChevronRight,
     Trophy,
     Sparkles,

@@ -4,11 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import {
     PenLine,
     Sparkles,
-    Mic2,
     XCircle,
     CheckCircle2,
     Lightbulb,
 } from "lucide-react";
+import Link from "next/link";
 
 interface Correction {
     id: string;
@@ -111,7 +111,7 @@ export default function CorrectionsPage() {
                 className="animate-fade-in-up"
                 style={{ marginBottom: "12px" }}
             >
-                <a
+                <Link
                     href="/"
                     style={{
                         fontSize: "12px",
@@ -121,7 +121,7 @@ export default function CorrectionsPage() {
                     }}
                 >
                     ← Home
-                </a>
+                </Link>
                 <h1
                     style={{
                         fontSize: "20px",
@@ -187,7 +187,7 @@ export default function CorrectionsPage() {
                     >
                         Hãy nói chuyện với AI để nhận feedback!
                     </p>
-                    <a
+                    <Link
                         href="/speak"
                         className="btn-primary"
                         style={{
@@ -197,7 +197,7 @@ export default function CorrectionsPage() {
                         }}
                     >
                         Start Conversation
-                    </a>
+                    </Link>
                 </div>
             ) : (
                 <>
@@ -326,7 +326,7 @@ export default function CorrectionsPage() {
             )}
 
             <div style={{ textAlign: "center", marginTop: "12px" }}>
-                <a
+                <Link
                     href="/speak/history"
                     style={{
                         fontSize: "12px",
@@ -335,7 +335,7 @@ export default function CorrectionsPage() {
                     }}
                 >
                     ← Conversation history
-                </a>
+                </Link>
             </div>
         </div>
     );

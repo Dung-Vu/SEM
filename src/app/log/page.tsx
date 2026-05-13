@@ -11,10 +11,10 @@ import {
     BookMarked,
     Tv,
     Zap,
-    ScrollText,
     Inbox,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { addLocalDays, getLocalDateKey } from "@/lib/streak";
 
 interface ActivityLog {
     id: string;
@@ -41,10 +41,8 @@ function getSource(src: string) {
 }
 
 function formatDate(dateStr: string) {
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000)
-        .toISOString()
-        .slice(0, 10);
+    const today = getLocalDateKey();
+    const yesterday = getLocalDateKey(addLocalDays(new Date(), -1));
     if (dateStr === today) return "Today";
     if (dateStr === yesterday) return "Yesterday";
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -85,9 +83,7 @@ export default function ActivityLogPage() {
     // Heatmap: last 90 days
     const heatmapDays: { date: string; exp: number }[] = [];
     for (let i = 89; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().slice(0, 10);
+        const dateStr = getLocalDateKey(addLocalDays(new Date(), -i));
         heatmapDays.push({ date: dateStr, exp: dailyTotals[dateStr] || 0 });
     }
     const maxExp = Math.max(1, ...Object.values(dailyTotals));
@@ -101,7 +97,7 @@ export default function ActivityLogPage() {
         return "var(--gold)";
     };
 
-    const todayExp = dailyTotals[new Date().toISOString().slice(0, 10)] || 0;
+    const todayExp = dailyTotals[getLocalDateKey()] || 0;
     const totalDaysActive = Object.keys(dailyTotals).length;
 
     if (loading) {

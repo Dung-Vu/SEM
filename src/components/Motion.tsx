@@ -106,11 +106,9 @@ export function Pressable({
     onClick?: () => void;
     className?: string;
     style?: React.CSSProperties;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     as?: string;
 }) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const MotionTag = motion[Tag as keyof typeof motion] as any;
+    const MotionTag = motion[Tag as keyof typeof motion] as React.ElementType;
     return (
         <MotionTag
             className={className}

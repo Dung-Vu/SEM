@@ -1,20 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
+import { getLocalDateKey, getLocalDayOfWeek, getLocalWeekInfo } from "@/lib/streak";
 
 function getTodayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getLocalDateKey();
 }
 
 function isWeeklyDay(): boolean {
-  return new Date().getDay() === 0; // Sunday
+  return getLocalDayOfWeek() === 0; // Sunday in configured local timezone
 }
 
 // GET — Today's quests with completion status
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const today = getTodayString();
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "questKey is required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const template = await prisma.dailyQuestTemplate.findUnique({ where: { key: questKey } });
@@ -78,38 +80,38 @@ export async function POST(request: NextRequest) {
 
     const today = getTodayString();
 
-    // Check if already completed
-    const existing = await prisma.questProgress.findUnique({
-      where: { userId_questKey_date: { userId: user.id, questKey, date: today } },
-    });
+    const awarded = await prisma.$transaction(async (tx) => {
+      const updated = await tx.questProgress.updateMany({
+        where: { userId: user.id, questKey, date: today, completed: false },
+        data: { completed: true, completedAt: new Date() },
+      });
+      let shouldAward = updated.count > 0;
 
-    if (existing?.completed) {
-      return NextResponse.json({ success: false, message: "Already completed today" });
-    }
+      if (!shouldAward) {
+        const created = await tx.questProgress.createMany({
+          data: { userId: user.id, questKey, date: today, completed: true, completedAt: new Date() },
+          skipDuplicates: true,
+        });
+        shouldAward = created.count > 0;
+      }
 
-    // Award EXP with transaction
-    const newExp = user.exp + template.expReward;
-    const newLevel = getLevelFromExp(newExp);
+      if (!shouldAward) return false;
 
-    await prisma.$transaction([
-      prisma.questProgress.upsert({
-        where: { userId_questKey_date: { userId: user.id, questKey, date: today } },
-        update: { completed: true, completedAt: new Date() },
-        create: { userId: user.id, questKey, date: today, completed: true, completedAt: new Date() },
-      }),
-      prisma.user.update({
-        where: { id: user.id },
-        data: { exp: newExp, level: newLevel },
-      }),
-      prisma.activityLog.create({
+      await awardExp(tx, user.id, template.expReward);
+      await tx.activityLog.create({
         data: {
           userId: user.id,
           source: "quest",
           amount: template.expReward,
           description: `${template.icon} ${template.name}`,
         },
-      }),
-    ]);
+      });
+      return true;
+    });
+
+    if (!awarded) {
+      return NextResponse.json({ success: false, message: "Already completed today" });
+    }
 
     // Phase 14: log analytics event
     void logEvent(user.id, "quest_completed", undefined, undefined, undefined, {
@@ -121,16 +123,18 @@ export async function POST(request: NextRequest) {
     // Log weekly quest completion to boss history
     if (template.type === "weekly") {
 
-      const now = new Date();
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const weekNumber = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7);
+      const { weekNumber, year } = getLocalWeekInfo(new Date());
       try {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "WeeklyBossCompletion" ("userId", "weekNumber", "year", "challengeKey", "challengeName", "completedAt")
-           VALUES ($1, $2, $3, $4, $5, NOW())
-           ON CONFLICT ("userId", "weekNumber", "year") DO NOTHING`,
-          user.id, weekNumber, now.getFullYear(), template.key, template.name,
-        );
+        await prisma.weeklyBossCompletion.createMany({
+          data: {
+            userId: user.id,
+            weekNumber,
+            year,
+            challengeKey: template.key,
+            note: template.name,
+          },
+          skipDuplicates: true,
+        });
       } catch { /* table may not exist yet — that's ok */ }
     }
 

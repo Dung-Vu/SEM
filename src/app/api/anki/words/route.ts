@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
+import { getLocalStartOfDay } from "@/lib/streak";
 
 // GET — List all words (or countToday)
 export async function GET(request: NextRequest) {
@@ -10,8 +12,7 @@ export async function GET(request: NextRequest) {
     
     // Return today's word count for the word hunt counter
     if (searchParams.get("countToday") === "true") {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      const todayStart = getLocalStartOfDay();
       const todayCount = await prisma.word.count({
         where: { createdAt: { gte: todayStart } },
       });
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "English and Vietnamese are required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Check if word already exists
@@ -90,20 +91,11 @@ export async function POST(request: NextRequest) {
 
     // EXP for adding a word with transaction
     const expGain = 2;
-    const newExp = user.exp + expGain;
-    const newLevel = getLevelFromExp(newExp);
-
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { exp: newExp, level: newLevel },
-      }),
-    ]);
+    await awardExp(prisma, user.id, expGain);
 
     // Auto-tick learn_10_words quest after ≥10 words added today
     let autoQuestExp = 0;
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = getLocalStartOfDay();
     const todayWordCount = await prisma.word.count({
       where: { createdAt: { gte: todayStart } },
     });

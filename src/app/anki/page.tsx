@@ -8,14 +8,12 @@ import {
     Volume2,
     PauseCircle,
     Eye,
-    Home,
-    Plus,
-    RotateCcw,
     PartyPopper,
     Sparkles,
     Clock,
 } from "lucide-react";
 import { haptic } from "@/lib/haptics";
+import Link from "next/link";
 
 interface ReviewCard {
     id: string;
@@ -455,7 +453,7 @@ export default function AnkiPage() {
                 )}
 
                 <div style={{ display: "flex", gap: "8px" }}>
-                    <a
+                    <Link
                         href="/"
                         className="btn-secondary"
                         style={{
@@ -467,8 +465,8 @@ export default function AnkiPage() {
                         }}
                     >
                         Home
-                    </a>
-                    <a
+                    </Link>
+                    <Link
                         href="/anki/add"
                         className="btn-primary"
                         style={{
@@ -480,7 +478,7 @@ export default function AnkiPage() {
                         }}
                     >
                         Add Words
-                    </a>
+                    </Link>
                 </div>
             </div>
         );

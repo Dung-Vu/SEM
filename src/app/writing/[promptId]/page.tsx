@@ -29,14 +29,18 @@ export default function WritingEditorPage() {
     const searchParams = useSearchParams();
     const promptId = params.promptId as string;
     const rewriteId = searchParams.get("rewrite");
+    const draftKey = `writing_draft_${promptId}`;
 
     const [prompt, setPrompt] = useState<PromptData | null>(null);
-    const [content, setContent] = useState("");
+    const [content, setContent] = useState(() =>
+        typeof window === "undefined"
+            ? ""
+            : (localStorage.getItem(draftKey) ?? ""),
+    );
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [startTime] = useState(() => Date.now());
     const [elapsed, setElapsed] = useState(0);
-    const [draftRestored, setDraftRestored] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const autoSaveRef = useRef<ReturnType<typeof setInterval> | undefined>(
         undefined,
@@ -82,25 +86,15 @@ export default function WritingEditorPage() {
             .catch(() => {});
     }, [rewriteId]);
 
-    // Restore draft from localStorage
-    useEffect(() => {
-        const key = `writing_draft_${promptId}`;
-        const saved = localStorage.getItem(key);
-        if (saved && !draftRestored) {
-            setContent(saved);
-            setDraftRestored(true);
-        }
-    }, [promptId, draftRestored]);
-
     // Auto-save draft every 30 seconds
     useEffect(() => {
         autoSaveRef.current = setInterval(() => {
             if (content.trim().length > 0) {
-                localStorage.setItem(`writing_draft_${promptId}`, content);
+                localStorage.setItem(draftKey, content);
             }
         }, 30000);
         return () => clearInterval(autoSaveRef.current);
-    }, [content, promptId]);
+    }, [content, draftKey]);
 
     // Timer
     useEffect(() => {
@@ -114,7 +108,6 @@ export default function WritingEditorPage() {
         content.trim().length > 0 ? content.trim().split(/\s+/).length : 0;
     const minWords = prompt?.minWords ?? 150;
     const maxWords = prompt?.maxWords ?? 350;
-    const progress = Math.min(100, Math.round((wordCount / minWords) * 100));
     const canSubmit = wordCount >= minWords && !submitting;
 
     // Timer display

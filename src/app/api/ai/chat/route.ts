@@ -12,18 +12,22 @@ export async function POST(request: Request) {
     const { action, messages, mode, durationMinutes } = body;
 
     if (action === "chat") {
-      // Regular chat
+      const clientMessages = normalizeMessages(messages);
+      if (!clientMessages) {
+        return NextResponse.json({ error: "messages must be an array of chat messages" }, { status: 400 });
+      }
+
+      // Regular chat. If the caller supplies its own system prompt, respect it
+      // instead of prepending a conversation-mode prompt that can override task intent.
       const modeConfig = CONVERSATION_MODES[mode as ConversationMode];
-      if (!modeConfig) {
+      const hasCustomSystemPrompt = clientMessages.some((m) => m.role === "system");
+      if (!hasCustomSystemPrompt && !modeConfig) {
         return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
       }
 
-      const systemMessage: ChatMessage = {
-        role: "system",
-        content: modeConfig.systemPrompt,
-      };
-
-      const allMessages: ChatMessage[] = [systemMessage, ...messages];
+      const allMessages: ChatMessage[] = hasCustomSystemPrompt
+        ? clientMessages
+        : [{ role: "system", content: modeConfig.systemPrompt }, ...clientMessages];
 
       try {
         const reply = await chatCompletion(allMessages);
@@ -63,4 +67,18 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "AI service unavailable";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function normalizeMessages(value: unknown): ChatMessage[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const messages: ChatMessage[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") return null;
+    const { role, content } = item as Record<string, unknown>;
+    if (role !== "system" && role !== "user" && role !== "assistant") return null;
+    if (typeof content !== "string") return null;
+    messages.push({ role, content });
+  }
+  return messages;
 }

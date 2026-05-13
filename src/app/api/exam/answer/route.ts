@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 
 // PATCH /api/exam/answer — Save a single answer
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = await request.json();
@@ -16,7 +17,7 @@ export async function PATCH(request: NextRequest) {
       flagged?: boolean;
     };
 
-    if (!examId || !questionId) {
+    if (typeof examId !== "string" || typeof questionId !== "string" || !examId || !questionId) {
       return NextResponse.json({ error: "examId and questionId required" }, { status: 400 });
     }
 
@@ -30,14 +31,36 @@ export async function PATCH(request: NextRequest) {
     }
 
     const update: Record<string, unknown> = {};
-    if (userAnswer !== undefined) update.userAnswer = userAnswer;
-    if (timeSpent !== undefined) update.timeSpent = timeSpent;
-    if (flagged !== undefined) update.flagged = flagged;
+    if (userAnswer !== undefined) {
+      if (userAnswer !== null && !["A", "B", "C", "D"].includes(String(userAnswer).toUpperCase())) {
+        return NextResponse.json({ error: "Invalid answer" }, { status: 400 });
+      }
+      update.userAnswer = userAnswer === null ? null : String(userAnswer).toUpperCase();
+    }
+    if (timeSpent !== undefined) {
+      const safeTimeSpent = Number(timeSpent);
+      if (!Number.isFinite(safeTimeSpent) || safeTimeSpent < 0) {
+        return NextResponse.json({ error: "Invalid timeSpent" }, { status: 400 });
+      }
+      update.timeSpent = Math.min(24 * 60 * 60, Math.round(safeTimeSpent));
+    }
+    if (flagged !== undefined) {
+      if (typeof flagged !== "boolean") {
+        return NextResponse.json({ error: "Invalid flagged value" }, { status: 400 });
+      }
+      update.flagged = flagged;
+    }
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: "No answer update provided" }, { status: 400 });
+    }
 
-    await prisma.examAnswer.update({
-      where: { examId_questionId: { examId, questionId } },
+    const updated = await prisma.examAnswer.updateMany({
+      where: { examId, questionId },
       data: update,
     });
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Question not found in exam" }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

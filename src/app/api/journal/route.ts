@@ -1,16 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
+import { getLocalDateKey, getLocalStartOfDay } from "@/lib/streak";
 
 function getTodayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getLocalDateKey();
 }
 
 // GET — List journal entries
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const entries = await prisma.journalEntry.findMany({
@@ -35,7 +37,7 @@ export async function GET() {
     for (let i = 0; i < 365; i++) {
       const expectedDate = new Date();
       expectedDate.setDate(expectedDate.getDate() - i);
-      const expected = expectedDate.toISOString().slice(0, 10);
+      const expected = getLocalDateKey(expectedDate);
 
       if (dateSet.has(expected)) {
         journalStreak++;
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Entry must be at least 10 characters" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const today = getTodayString();
@@ -92,39 +94,32 @@ export async function POST(request: NextRequest) {
     });
 
     // Check if EXP already awarded today (prevent farming by re-saving)
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const alreadyAwarded = await prisma.activityLog.findFirst({
-      where: { userId: user.id, source: "journal", createdAt: { gte: todayStart } },
-    });
-
-    if (alreadyAwarded) {
-      // Just update content, no EXP this time
-      return NextResponse.json({ success: true, entry, expGain: 0, wordCount, newLevel: user.level, alreadyAwarded: true });
-    }
-
     // Award EXP (25 for journal, bonus for 100+ words)
     const expGain = wordCount >= 100 ? 35 : 25;
+    const todayStart = getLocalStartOfDay();
+    const awarded = await prisma.$transaction(async (tx) => {
+      const alreadyAwarded = await tx.activityLog.findFirst({
+        where: { userId: user.id, source: "journal", createdAt: { gte: todayStart } },
+      });
+      if (alreadyAwarded) return null;
 
-    // Use transaction to avoid race condition
-    const newExp = user.exp + expGain;
-    const newLevel = getLevelFromExp(newExp);
-
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: { exp: newExp, level: newLevel },
+      const updated = await awardExp(tx, user.id, expGain);
+      await tx.activityLog.create({
+        data: { userId: user.id, source: "journal", amount: expGain, description: `Journal (${wordCount} words)` },
+      });
+      return updated;
     });
 
-    await prisma.activityLog.create({
-      data: { userId: user.id, source: "journal", amount: expGain, description: `\u270d\ufe0f Journal (${wordCount} words)` },
-    });
+    if (!awarded) {
+      return NextResponse.json({ success: true, entry, expGain: 0, wordCount, newLevel: user.level, alreadyAwarded: true });
+    }
 
     // Phase 14: log analytics event
     void logEvent(user.id, "journal_written", "writing", Math.min(100, Math.round(wordCount / 2)), Math.round(wordCount * 0.6), {
       word_count: wordCount,
     });
 
-    return NextResponse.json({ success: true, entry, expGain, wordCount, newLevel: updatedUser.level });
+    return NextResponse.json({ success: true, entry, expGain, wordCount, newLevel: awarded.level });
   } catch (error) {
     console.error("POST /api/journal error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

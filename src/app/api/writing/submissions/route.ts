@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 
 // GET /api/writing/submissions — List user submissions or get single
 export async function GET(request: NextRequest) {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const { searchParams } = new URL(request.url);
@@ -41,7 +42,10 @@ export async function GET(request: NextRequest) {
 
     // List with optional type filter
     const type = searchParams.get("type");
-    const limit = Number(searchParams.get("limit")) || 20;
+    const parsedLimit = Number(searchParams.get("limit"));
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.min(100, Math.max(1, Math.round(parsedLimit)))
+      : 20;
 
     const where: Record<string, unknown> = { userId: user.id };
     if (type) {

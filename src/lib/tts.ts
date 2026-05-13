@@ -7,8 +7,6 @@ export interface TTSOptions {
   voice?: "en-US" | "en-GB" | "en-AU";
 }
 
-let currentUtterance: SpeechSynthesisUtterance | null = null;
-
 export function speak(text: string, options?: TTSOptions): void {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
 
@@ -26,14 +24,12 @@ export function speak(text: string, options?: TTSOptions): void {
   const match = voices.find((v) => v.lang.startsWith(lang));
   if (match) utterance.voice = match;
 
-  currentUtterance = utterance;
   window.speechSynthesis.speak(utterance);
 }
 
 export function stopSpeech(): void {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  currentUtterance = null;
 }
 
 export function isSpeaking(): boolean {

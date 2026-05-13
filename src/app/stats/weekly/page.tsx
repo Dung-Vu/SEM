@@ -8,13 +8,11 @@ import {
     Ear,
     Mic2,
     PenLine,
-    TrendingUp,
-    ScrollText,
     Star,
-    Gamepad2,
     Sparkles,
-    AlertTriangle,
 } from "lucide-react";
+import Link from "next/link";
+import { getLocalWeekInfo } from "@/lib/streak";
 
 interface WeeklyLog {
     id: string;
@@ -55,9 +53,8 @@ export default function WeeklyStatsPage() {
             const res = await fetch("/api/stats/weekly");
             const data = await res.json();
             setLogs(data.logs || []);
-            const now = new Date();
-            const currentWeek = getWeekNumber(now);
-            const currentYear = now.getFullYear();
+            const { weekNumber: currentWeek, year: currentYear } =
+                getLocalWeekInfo(new Date());
             const hasThisWeek = (data.logs || []).some(
                 (l: WeeklyLog) =>
                     l.weekNumber === currentWeek && l.year === currentYear,
@@ -193,7 +190,7 @@ export default function WeeklyStatsPage() {
                 className="animate-fade-in-up"
                 style={{ marginBottom: "16px" }}
             >
-                <a
+                <Link
                     href="/"
                     style={{
                         fontSize: "12px",
@@ -203,7 +200,7 @@ export default function WeeklyStatsPage() {
                     }}
                 >
                     ← Home
-                </a>
+                </Link>
                 <h1
                     style={{
                         fontSize: "20px",
@@ -778,14 +775,4 @@ export default function WeeklyStatsPage() {
             )}
         </div>
     );
-}
-
-function getWeekNumber(date: Date): number {
-    const d = new Date(
-        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-    );
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }

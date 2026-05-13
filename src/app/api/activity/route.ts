@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
+import { getLocalDateKey } from "@/lib/streak";
 
 // GET — Activity log (recent activity)
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const logs = await prisma.activityLog.findMany({
@@ -16,7 +18,7 @@ export async function GET() {
     // Group by date
     const grouped: Record<string, typeof logs> = {};
     for (const log of logs) {
-      const date = log.createdAt.toISOString().slice(0, 10);
+      const date = getLocalDateKey(log.createdAt);
       if (!grouped[date]) grouped[date] = [];
       grouped[date].push(log);
     }
@@ -32,7 +34,7 @@ export async function GET() {
 
     const dailyTotals: Record<string, number> = {};
     for (const log of allLogs) {
-      const date = log.createdAt.toISOString().slice(0, 10);
+      const date = getLocalDateKey(log.createdAt);
       dailyTotals[date] = (dailyTotals[date] || 0) + log.amount;
     }
 

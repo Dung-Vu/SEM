@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp } from "@/lib/exp";
+
+const RESOURCE_STATUSES = new Set(["want", "in_progress", "done"]);
 
 // GET — List all resources
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const resources = await prisma.resource.findMany({
@@ -48,34 +51,38 @@ export async function POST(request: NextRequest) {
       action?: string;
     };
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Update status of existing resource
     if (action === "update_status" && id && status) {
+      if (!RESOURCE_STATUSES.has(status)) {
+        return NextResponse.json({ error: "Invalid resource status" }, { status: 400 });
+      }
+
       const resource = await prisma.resource.findUnique({ where: { id } });
       if (!resource) return NextResponse.json({ error: "Resource not found" }, { status: 404 });
+      if (resource.userId !== user.id) {
+        return NextResponse.json({ error: "Resource not found" }, { status: 404 });
+      }
 
       // Award EXP when marking as done
       if (status === "done" && resource.status !== "done") {
-        const newExp = user.exp + resource.expReward;
-        const newLevel = getLevelFromExp(newExp);
-
-        const updated = await prisma.$transaction([
-          prisma.resource.update({
+        const updated = await prisma.$transaction(async (tx) => {
+          const [resourceUpdated] = await Promise.all([
+            tx.resource.update({
             where: { id },
             data: { status },
-          }),
-          prisma.user.update({
-            where: { id: user.id },
-            data: { exp: newExp, level: newLevel },
-          }),
-          prisma.activityLog.create({
+            }),
+            awardExp(tx, user.id, resource.expReward),
+            tx.activityLog.create({
             data: { userId: user.id, source: "resource", amount: resource.expReward, description: `📖 ${resource.name}` },
-          }),
-        ]);
+            }),
+          ]);
+          return resourceUpdated;
+        });
 
-        return NextResponse.json({ success: true, resource: updated[0], expGain: resource.expReward });
+        return NextResponse.json({ success: true, resource: updated, expGain: resource.expReward });
       }
 
       const updated = await prisma.resource.update({
@@ -86,12 +93,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Add new resource
-    if (!name || !category) {
+    if (status !== undefined && !RESOURCE_STATUSES.has(status)) {
+      return NextResponse.json({ error: "Invalid resource status" }, { status: 400 });
+    }
+
+    if (typeof name !== "string" || typeof category !== "string" || !name.trim() || !category.trim()) {
       return NextResponse.json({ error: "name and category are required" }, { status: 400 });
     }
 
     const resource = await prisma.resource.create({
-      data: { userId: user.id, name, link: link ?? "", category, level: level ?? "B1", notes: notes ?? "", status: status ?? "want" },
+      data: {
+        userId: user.id,
+        name: name.trim().slice(0, 200),
+        link: typeof link === "string" ? link.trim().slice(0, 500) : "",
+        category: category.trim().slice(0, 80),
+        level: typeof level === "string" && level.trim() ? level.trim().slice(0, 20) : "B1",
+        notes: typeof notes === "string" ? notes.trim().slice(0, 1000) : "",
+        status: status ?? "want",
+      },
     });
 
     return NextResponse.json({ success: true, resource });

@@ -3,13 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import {
     CalendarDays,
-    Search,
-    Construction,
-    Target,
-    PenLine,
-    Library,
-    BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 
 interface MonthlyReviewData {
     id: string;
@@ -169,7 +164,7 @@ export default function MonthlyReviewPage() {
                 className="animate-fade-in-up"
                 style={{ marginBottom: "12px" }}
             >
-                <a
+                <Link
                     href="/"
                     style={{
                         fontSize: "12px",
@@ -179,7 +174,7 @@ export default function MonthlyReviewPage() {
                     }}
                 >
                     ← Home
-                </a>
+                </Link>
                 <h1
                     style={{
                         fontSize: "20px",

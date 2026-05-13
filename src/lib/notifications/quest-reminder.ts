@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getLocalDateKey } from "@/lib/streak";
 import { shouldSendNotification } from "./scheduler";
 import { sendUserPushNotification } from "./push-handler";
 
@@ -17,7 +18,7 @@ export async function checkAndSendQuestReminder(userId: string) {
 }
 
 async function getQuestStats(userId: string): Promise<[number, number]> {
-  const dateStr = new Date().toISOString().split("T")[0];
+  const dateStr = getLocalDateKey();
   
   const templates = await prisma.dailyQuestTemplate.count({
     where: { type: "main" } // assuming Phase 10 structure

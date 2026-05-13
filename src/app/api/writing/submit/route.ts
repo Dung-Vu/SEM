@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { gradeSubmission, getPreviousScore, checkPersonalBest, syncWritingToMemory } from "@/lib/writing-grader";
 import { logEvent } from "@/lib/analytics";
 import type { GrammarError } from "@/lib/writing-grader";
@@ -7,7 +8,7 @@ import type { GrammarError } from "@/lib/writing-grader";
 // POST /api/writing/submit — Submit writing → grade → save → integrations
 export async function POST(request: NextRequest) {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = await request.json();

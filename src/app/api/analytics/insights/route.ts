@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+﻿import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/current-user";
 import { calculateLearningProfile } from "@/lib/profile-engine";
 import { generateAndCacheInsights, getInsights } from "@/lib/insight-generator";
 
 // GET /api/analytics/insights — get cached insights
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const insights = await getInsights(user.id);
@@ -18,9 +18,9 @@ export async function GET() {
 }
 
 // POST /api/analytics/insights — recalculate profile and generate fresh insights
-export async function POST(_req: NextRequest) {
+export async function POST() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Recalculate profile first so insights are based on fresh data

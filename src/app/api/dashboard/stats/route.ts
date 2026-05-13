@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 
 /**
  * 17.5 — Dashboard Stats endpoint
@@ -8,8 +8,8 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET() {
     try {
-        const user = await prisma.user.findFirst({
-            select: { stats: true },
+        const user = await getCurrentUser({
+            stats: true,
         });
 
         if (!user) {

@@ -27,9 +27,8 @@ const STALE_WHILE_REVALIDATE_APIS = [
     "/api/dashboard/hero",
     "/api/dashboard/streak",
     "/api/dashboard/stats",
-    "/api/anki/due",
     "/api/progress",
-    "/api/stats",
+    "/api/stats/weekly",
 ];
 
 // ─── APIs that must always be fresh (mutations or AI) ────────────────────
@@ -40,7 +39,6 @@ const NETWORK_ONLY_PATTERNS = [
     "/api/shadow",
     "/api/exam",
     "/api/ai",
-    "/api/exp",
     "/api/push",
     "/api/analytics",
 ];

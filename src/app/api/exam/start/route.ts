@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { assembleFullExam, assembleQuickExam, assembleSectionExam, shouldUseAdaptive, buildAdaptiveExam } from "@/lib/exam-generator";
+
+const EXAM_LEVELS = new Set(["A1", "A2", "B1", "B2", "C1", "C2"]);
+const EXAM_SECTIONS = new Set(["grammar", "vocabulary", "reading", "listening"]);
 
 // POST /api/exam/start — Create a new exam
 export async function POST(request: NextRequest) {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = await request.json();
@@ -15,13 +19,17 @@ export async function POST(request: NextRequest) {
       section?: string; // required if mode === 'section'
     };
 
-    if (!level || !mode) {
+    if (typeof level !== "string" || typeof mode !== "string") {
       return NextResponse.json({ error: "level and mode are required" }, { status: 400 });
     }
+    if (!EXAM_LEVELS.has(level)) {
+      return NextResponse.json({ error: "Invalid level" }, { status: 400 });
+    }
 
-    if (mode === "section" && !section) {
+    if (mode === "section" && (typeof section !== "string" || !EXAM_SECTIONS.has(section))) {
       return NextResponse.json({ error: "section is required for section mode" }, { status: 400 });
     }
+    const selectedSection = mode === "section" ? section as string : undefined;
 
     // Assemble questions based on mode
     let questions;
@@ -44,8 +52,8 @@ export async function POST(request: NextRequest) {
         timeLimit = 30;
         break;
       case "section":
-        questions = await assembleSectionExam(level, section!, user.id);
-        sections = [section!];
+        questions = await assembleSectionExam(level, selectedSection!, user.id);
+        sections = [selectedSection!];
         timeLimit = 15;
         break;
       default:

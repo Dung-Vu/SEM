@@ -8,7 +8,6 @@ import {
     Tv,
     BookMarked,
     Newspaper,
-    Library,
     Link2,
     Inbox,
 } from "lucide-react";

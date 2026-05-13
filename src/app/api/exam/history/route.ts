@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { getLevelRecommendation } from "@/lib/exam-generator";
+import { getLocalDateKey } from "@/lib/streak";
 
 // GET /api/exam/history — Exam history + stats + review data
 export async function GET(request: NextRequest) {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const { searchParams } = new URL(request.url);
@@ -123,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     // Score trend (last 10)
     const scoreTrend = results.slice(0, 10).reverse().map(r => ({
-      date: r.createdAt.toISOString().slice(0, 10),
+      date: getLocalDateKey(r.createdAt),
       score: r.totalScore,
       level: r.exam.level,
     }));

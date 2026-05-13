@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { calculateLearningProfile, detectWeaknesses, predictLevelUp } from "@/lib/profile-engine";
 import { countEventsByDay } from "@/lib/analytics";
+import { addLocalDays, getLocalDateKey, getLocalStartOfDay, getLocalStartOfNextDay } from "@/lib/streak";
 
 // GET /api/analytics/profile — full analytics data for dashboard
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Get or recalculate profile
@@ -92,18 +94,16 @@ function getNextLevel(current: string): string {
 async function buildVelocityHistory(userId: string) {
   // Return 14 daily data points for vocab (from ReviewLog) and writing (from JournalEntry)
   const result: { date: string; anki: number; journal: number; speak: number }[] = [];
+  const todayStart = getLocalStartOfDay();
   for (let i = 13; i >= 0; i--) {
-    const dayStart = new Date();
-    dayStart.setDate(dayStart.getDate() - i);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setHours(23, 59, 59, 999);
-    const dateKey = dayStart.toISOString().slice(0, 10);
+    const dayStart = addLocalDays(todayStart, -i);
+    const dayEnd = getLocalStartOfNextDay(dayStart);
+    const dateKey = getLocalDateKey(dayStart);
 
     const [anki, journal, speak] = await Promise.all([
-      prisma.reviewLog.count({ where: { userId, reviewedAt: { gte: dayStart, lte: dayEnd } } }),
-      prisma.journalEntry.count({ where: { userId, createdAt: { gte: dayStart, lte: dayEnd } } }),
-      prisma.conversationSession.count({ where: { userId, createdAt: { gte: dayStart, lte: dayEnd } } }),
+      prisma.reviewLog.count({ where: { userId, reviewedAt: { gte: dayStart, lt: dayEnd } } }),
+      prisma.journalEntry.count({ where: { userId, createdAt: { gte: dayStart, lt: dayEnd } } }),
+      prisma.conversationSession.count({ where: { userId, createdAt: { gte: dayStart, lt: dayEnd } } }),
     ]);
 
     result.push({ date: dateKey, anki, journal, speak });

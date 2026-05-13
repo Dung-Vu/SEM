@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { assertInternalRequest } from "@/lib/server-security";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const unauthorized = assertInternalRequest(request);
+  if (unauthorized) return unauthorized;
+
   const log: string[] = [];
 
   // Step 1: Test basic connection

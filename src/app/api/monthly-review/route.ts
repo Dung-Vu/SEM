@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLevelFromExp } from "@/lib/exp";
+import { getCurrentUser } from "@/lib/current-user";
+import { awardExp } from "@/lib/exp";
+import { getLocalMonthInfo } from "@/lib/streak";
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const reviews = await prisma.monthlyReview.findMany({
@@ -12,9 +14,7 @@ export async function GET() {
       orderBy: [{ year: "desc" }, { month: "desc" }],
     });
 
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
+    const { month: currentMonth, year: currentYear } = getLocalMonthInfo();
     const hasThisMonth = reviews.some((r) => r.month === currentMonth && r.year === currentYear);
 
     return NextResponse.json({
@@ -32,42 +32,49 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { lookback, obstacles, focus } = body as { lookback: string; obstacles: string; focus: string };
+    const lookback = sanitizeReviewText(body?.lookback);
+    const obstacles = sanitizeReviewText(body?.obstacles);
+    const focus = sanitizeReviewText(body?.focus);
 
     if (!lookback && !obstacles && !focus) {
       return NextResponse.json({ error: "At least one field required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    const { month, year } = getLocalMonthInfo();
 
-    // Award EXP for monthly review with transaction
     const expGain = 100;
-    const newExp = user.exp + expGain;
-    const newLevel = getLevelFromExp(newExp);
-
-    const [review] = await prisma.$transaction([
-      prisma.monthlyReview.upsert({
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.monthlyReview.findUnique({
         where: { userId_month_year: { userId: user.id, month, year } },
-        update: { lookback, obstacles, focus, totalExp: newExp },
-        create: { userId: user.id, month, year, lookback, obstacles, focus, totalExp: newExp },
-      }),
-      prisma.user.update({
-        where: { id: user.id },
-        data: { exp: newExp, level: newLevel },
-      }),
-      prisma.activityLog.create({
-        data: { userId: user.id, source: "monthly_review", amount: expGain, description: `📅 Monthly Review (${month}/${year})` },
-      }),
-    ]);
+      });
+      if (existing) {
+        const review = await tx.monthlyReview.update({
+          where: { userId_month_year: { userId: user.id, month, year } },
+          data: { lookback, obstacles, focus },
+        });
+        return { review, expGain: 0 };
+      }
 
-    return NextResponse.json({ success: true, review, expGain });
+      const awarded = await awardExp(tx, user.id, expGain);
+      const review = await tx.monthlyReview.create({
+        data: { userId: user.id, month, year, lookback, obstacles, focus, totalExp: awarded.exp },
+      });
+      await tx.activityLog.create({
+        data: { userId: user.id, source: "monthly_review", amount: expGain, description: `Monthly Review (${month}/${year})` },
+      });
+      return { review, expGain };
+    });
+
+    return NextResponse.json({ success: true, review: result.review, expGain: result.expGain });
   } catch (error) {
     console.error("POST /api/monthly-review error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+function sanitizeReviewText(value: unknown): string {
+  return typeof value === "string" ? value.trim().slice(0, 3000) : "";
 }

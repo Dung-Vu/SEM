@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getLocalDateKey } from "@/lib/streak";
 
 // ─── Event Type Enum ──────────────────────────────────────────────────────
 
@@ -79,14 +80,11 @@ export async function getEventsByType(
 
 export async function countEventsByDay(userId: string, days: number) {
   // Returns map of date-string → { totalMinutes, totalEvents }
-  // Uses UTC+7 local date (Vietnam timezone) instead of UTC ISO to prevent off-by-one errors
-  const TZ_OFFSET_MS = parseInt(process.env.USER_TIMEZONE_OFFSET_MINS ?? "420") * 60000;
   const events = await getRecentEvents(userId, days);
   const map: Record<string, { totalMin: number; events: number }> = {};
 
   for (const e of events) {
-    const localDate = new Date(e.createdAt.getTime() + TZ_OFFSET_MS);
-    const dateKey = localDate.toISOString().slice(0, 10);
+    const dateKey = getLocalDateKey(e.createdAt);
     if (!map[dateKey]) map[dateKey] = { totalMin: 0, events: 0 };
     map[dateKey].events++;
     if (e.durationSec) map[dateKey].totalMin += Math.round(e.durationSec / 60);

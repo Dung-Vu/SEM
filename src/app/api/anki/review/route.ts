@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { calculateSrs } from "@/lib/srs";
-import { getLevelFromExp } from "@/lib/exp";
+import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
+import { getLocalStartOfDay } from "@/lib/streak";
 
 // GET — Get cards due for review today + new cards
 export async function GET(request: Request) {
@@ -14,7 +16,7 @@ export async function GET(request: Request) {
       Math.max(1, parseInt(searchParams.get("limit") ?? "15", 10) || 15)
     );
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const now = new Date();
@@ -31,8 +33,7 @@ export async function GET(request: Request) {
     });
 
     // New cards — respect user's daily limit setting
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = getLocalStartOfDay();
 
     const newCardsReviewedToday = await prisma.reviewLog.count({
       where: {
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid cardId or rating (1-4)" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const card = await prisma.srsCard.findUnique({
@@ -136,6 +137,9 @@ export async function POST(request: Request) {
     });
 
     if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
+    if (card.userId !== user.id) {
+      return NextResponse.json({ error: "Card not found" }, { status: 404 });
+    }
 
     const result = calculateSrs({
       intervalDays: card.intervalDays,
@@ -145,28 +149,31 @@ export async function POST(request: Request) {
       status: card.status,
     }, rating);
 
-    // Update SRS card
-    await prisma.srsCard.update({
-      where: { id: cardId },
-      data: {
-        intervalDays: result.intervalDays,
-        easeFactor: result.easeFactor,
-        nextReview: result.nextReview,
-        reviewsCount: result.reviewsCount,
-        lapseCount: result.lapseCount,
-        status: result.status,
-      },
-    });
+    const expGain = rating >= 3 ? 5 : 2;
+    await prisma.$transaction(async (tx) => {
+      await tx.srsCard.update({
+        where: { id: cardId },
+        data: {
+          intervalDays: result.intervalDays,
+          easeFactor: result.easeFactor,
+          nextReview: result.nextReview,
+          reviewsCount: result.reviewsCount,
+          lapseCount: result.lapseCount,
+          status: result.status,
+        },
+      });
 
-    // Log the review
-    await prisma.reviewLog.create({
-      data: {
-        userId: user.id,
-        wordId: card.wordId,
-        rating,
-        intervalBefore: card.intervalDays,
-        intervalAfter: result.intervalDays,
-      },
+      await tx.reviewLog.create({
+        data: {
+          userId: user.id,
+          wordId: card.wordId,
+          rating,
+          intervalBefore: card.intervalDays,
+          intervalAfter: result.intervalDays,
+        },
+      });
+
+      await awardExp(tx, user.id, expGain);
     });
 
     // Phase 14: log analytics event (non-blocking)
@@ -177,22 +184,9 @@ export async function POST(request: Request) {
       status: result.status,
     });
 
-    // Award EXP per review and update level
-    const expGain = rating >= 3 ? 5 : 2;
-    const currentUser = await prisma.user.findUnique({ where: { id: user.id } });
-    if (currentUser) {
-      const newExp = currentUser.exp + expGain;
-      const newLevel = getLevelFromExp(newExp);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { exp: newExp, level: newLevel },
-      });
-    }
-
     // Auto-tick anki_review quest after ≥10 reviews today
     let autoQuestExp = 0;
-    const todayStart2 = new Date();
-    todayStart2.setHours(0, 0, 0, 0);
+    const todayStart2 = getLocalStartOfDay();
     const todayReviewCount = await prisma.reviewLog.count({
       where: { userId: user.id, reviewedAt: { gte: todayStart2 } },
     });

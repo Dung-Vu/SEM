@@ -2,16 +2,9 @@
 
 import { useState } from "react";
 import {
-    Bot,
     Plus,
-    BookOpen,
-    MessageSquare,
-    BarChart3,
-    Tag,
-    BookMarked,
-    Download,
-    Home,
 } from "lucide-react";
+import Link from "next/link";
 
 export default function AddWordPage() {
     const [form, setForm] = useState({
@@ -460,7 +453,7 @@ export default function AddWordPage() {
                     animationDelay: "0.1s",
                 }}
             >
-                <a
+                <Link
                     href="/anki"
                     className="btn-secondary"
                     style={{
@@ -470,8 +463,8 @@ export default function AddWordPage() {
                     }}
                 >
                     Review Cards
-                </a>
-                <a
+                </Link>
+                <Link
                     href="/anki/import"
                     className="btn-secondary"
                     style={{
@@ -481,8 +474,8 @@ export default function AddWordPage() {
                     }}
                 >
                     Bulk Import
-                </a>
-                <a
+                </Link>
+                <Link
                     href="/"
                     className="btn-secondary"
                     style={{
@@ -492,7 +485,7 @@ export default function AddWordPage() {
                     }}
                 >
                     Home
-                </a>
+                </Link>
             </div>
         </div>
     );

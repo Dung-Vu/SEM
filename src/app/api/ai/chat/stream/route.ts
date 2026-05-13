@@ -1,6 +1,6 @@
-import { CONVERSATION_MODES, type ConversationMode } from "@/lib/ai-client";
+﻿import { CONVERSATION_MODES, type ConversationMode } from "@/lib/ai-client";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/current-user";
 import { logEvent } from "@/lib/analytics";
 import { buildSenseiSystemPrompt } from "@/lib/sensei-prompt";
 
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     // Single user lookup — shared across logging + SENSEI prompt
-    const user = await prisma.user.findFirst();
+    const user = await getCurrentUser();
 
     // Log speak_session_start when this is the first user message
     if (user && messages.length === 1 && messages[0].role === "user") {
@@ -89,7 +89,6 @@ export async function POST(request: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         const reader = upstream.body!.getReader();
-        const decoder = new TextDecoder();
 
         try {
           while (true) {

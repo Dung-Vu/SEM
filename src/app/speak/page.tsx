@@ -15,7 +15,6 @@ import {
     Hotel,
     UtensilsCrossed,
     BadgeCheck,
-    Shuffle,
     History,
     Mic2,
     Trophy,
@@ -29,7 +28,6 @@ interface Message {
     role: "user" | "assistant";
     content: string;
     timestamp: Date;
-    _streamId?: number;
 }
 
 // Unified icon + accent color config — NO bg diff per card
@@ -100,6 +98,7 @@ export default function SpeakPage() {
     >([]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const lastAssistantMessageRef = useRef("");
 
     useEffect(() => {
         if (!sessionStart || summary) return;
@@ -140,6 +139,7 @@ export default function SpeakPage() {
         setMessages([]);
         setSummary(null);
         setElapsed(0);
+        lastAssistantMessageRef.current = "";
         sendInitialMessage(selectedMode);
     };
 
@@ -166,22 +166,20 @@ export default function SpeakPage() {
         }
 
         // Add a placeholder assistant message immediately (shows typing effect)
-        const streamId = Date.now();
         setMessages((prev) => [
             ...prev,
             {
                 role: "assistant",
                 content: "",
                 timestamp: new Date(),
-                _streamId: streamId,
             } as Message,
         ]);
         setLoading(false); // Hide spinner — text will stream in below
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let fullText = "";
         let buffer = "";
+        let fullReply = "";
 
         while (true) {
             const { done, value } = await reader.read();
@@ -199,7 +197,8 @@ export default function SpeakPage() {
                     const json = JSON.parse(data);
                     const delta = json.choices?.[0]?.delta?.content ?? "";
                     if (delta) {
-                        fullText += delta;
+                        fullReply += delta;
+                        lastAssistantMessageRef.current = fullReply;
                         // Update last message in real-time
                         setMessages((prev) => {
                             const updated = [...prev];
@@ -208,9 +207,11 @@ export default function SpeakPage() {
                                 lastIdx >= 0 &&
                                 updated[lastIdx].role === "assistant"
                             ) {
+                                const nextContent =
+                                    updated[lastIdx].content + delta;
                                 updated[lastIdx] = {
                                     ...updated[lastIdx],
-                                    content: fullText,
+                                    content: nextContent,
                                 };
                             }
                             return updated;
@@ -222,7 +223,7 @@ export default function SpeakPage() {
             }
         }
 
-        return fullText;
+        return fullReply;
     };
 
     const sendInitialMessage = async (selectedMode: ConversationMode) => {
@@ -293,10 +294,24 @@ export default function SpeakPage() {
         }
         setEnding(true);
         try {
-            const chatHistory = messages.map((m) => ({
+            let chatHistory = messages.map((m) => ({
                 role: m.role,
                 content: m.content,
             }));
+            if (
+                lastAssistantMessageRef.current &&
+                chatHistory.length > 0 &&
+                chatHistory[chatHistory.length - 1]?.role === "assistant" &&
+                !chatHistory[chatHistory.length - 1]?.content
+            ) {
+                chatHistory = [
+                    ...chatHistory.slice(0, -1),
+                    {
+                        role: "assistant",
+                        content: lastAssistantMessageRef.current,
+                    },
+                ];
+            }
             const mins = Math.floor(elapsed / 60);
             const res = await fetch("/api/ai/chat", {
                 method: "POST",
@@ -311,15 +326,6 @@ export default function SpeakPage() {
             const data = await res.json();
             setSummary(data.summary || "Summary generation failed.");
             const expAmount = Math.max(20, mins * 5);
-            await fetch("/api/exp", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    source: "ai_conversation",
-                    amount: expAmount,
-                    description: `AI Conversation (${CONVERSATION_MODES[mode!].name}, ${mins} min)`,
-                }),
-            });
             const convRes = await fetch("/api/ai/conversations", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -981,7 +987,6 @@ export default function SpeakPage() {
     // ─── Chat Interface ───
     const currentMode = CONVERSATION_MODES[mode];
     const modeAccent = MODE_CONFIG[mode]?.color ?? "var(--gold)";
-    const ModeIcon = MODE_CONFIG[mode]?.icon ?? MessageCircle;
     const timerGlowing = elapsed > 300; // 5 min milestone
 
     const chatUI = (

@@ -20,14 +20,19 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 export type PushStatus = "unsupported" | "default" | "granted" | "denied" | "subscribed";
 
 export function usePushNotifications() {
-  const [status, setStatus] = useState<PushStatus>("default");
+  const [status, setStatus] = useState<PushStatus>(() => {
+    if (typeof window === "undefined") return "default";
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      return "unsupported";
+    }
+    return "default";
+  });
   const [loading, setLoading] = useState(false);
 
   // Check current status on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setStatus("unsupported");
       return;
     }
 

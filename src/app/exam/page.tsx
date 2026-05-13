@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import {
     ClipboardCheck,
     Zap,
-    BookOpen,
-    ArrowLeft,
     History,
 } from "lucide-react";
 import Link from "next/link";

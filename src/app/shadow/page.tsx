@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import {
-    Headphones,
-    Library,
-    Bot,
-    PenLine,
-    Target,
-    Timer,
-    Star,
-} from "lucide-react";
+import { Star } from "lucide-react";
 
 interface ShadowLog {
     id: string;

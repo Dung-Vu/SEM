@@ -18,6 +18,7 @@ import {
     CheckCircle2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { addLocalDays, getLocalDateKey } from "@/lib/streak";
 
 // ── Pure-SVG Radar Chart ──────────────────────────────────────────────────────
 function RadarChart({
@@ -312,9 +313,7 @@ export default function ProgressPage() {
     const maxWeekExp = Math.max(...data.expByWeek.map((w) => w.exp), 1);
     const heatmapDays: { date: string; exp: number }[] = [];
     for (let i = 364; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().slice(0, 10);
+        const dateStr = getLocalDateKey(addLocalDays(new Date(), -i));
         heatmapDays.push({
             date: dateStr,
             exp: data.heatmapData[dateStr] || 0,

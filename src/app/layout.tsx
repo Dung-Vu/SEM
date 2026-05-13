@@ -1,10 +1,32 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, JetBrains_Mono, Sora } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 import { ToastProvider } from "@/components/ui/Toast";
+
+const sora = Sora({
+    subsets: ["latin", "latin-ext"],
+    weight: ["400", "600", "700", "800"],
+    variable: "--font-sora",
+    display: "swap",
+});
+
+const inter = Inter({
+    subsets: ["latin", "latin-ext"],
+    weight: ["400", "500", "600"],
+    variable: "--font-inter",
+    display: "swap",
+});
+
+const jetBrainsMono = JetBrains_Mono({
+    subsets: ["latin", "latin-ext"],
+    weight: ["400", "600"],
+    variable: "--font-jetbrains-mono",
+    display: "swap",
+});
 
 export const metadata: Metadata = {
     title: "SEM — Self English Mastery",
@@ -37,28 +59,12 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="vi" className="dark" suppressHydrationWarning>
+        <html
+            lang="vi"
+            className={`dark ${sora.variable} ${inter.variable} ${jetBrainsMono.variable}`}
+            suppressHydrationWarning
+        >
             <head>
-                {/* Preconnect for performance */}
-                <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link
-                    rel="preconnect"
-                    href="https://fonts.gstatic.com"
-                    crossOrigin="anonymous"
-                />
-
-                {/*
-                  Fonts:
-                  - Outfit (700,800) → display/headings — hỗ trợ đầy đủ Latin Extended + tiếng Việt
-                  - Inter (400,500,600) → body text — clean, readable mọi charset
-                  - JetBrains Mono (400,600) → numbers, code, data
-                */}
-                <link
-                    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap"
-                    rel="stylesheet"
-                    fetchPriority="high"
-                />
-
                 {/* PWA */}
                 <meta name="apple-mobile-web-app-capable" content="yes" />
                 <meta

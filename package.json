@@ -8,17 +8,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test tests/**/*.test.ts",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:push": "npx prisma db push",
     "db:studio": "npx prisma studio",
-    "db:seed-all": "node prisma/seed.js && node prisma/seed-words.js && node prisma/seed-words-a1-expanded.js && node prisma/seed-words-a2.js && node prisma/seed-words-specialty.js && node prisma/seed-quests.js && node prisma/seed-quests-expanded.js && node prisma/seed-resources.js",
+    "db:seed-all": "node prisma/seed.js && node prisma/seed-words.js && node prisma/seed-words-a1-expanded.js && node prisma/seed-words-a2.js && node prisma/seed-words-b1-expanded.js && node prisma/seed-words-b2.js && node prisma/seed-words-c1.js && node prisma/seed-words-specialty.js && node prisma/seed-quests.js && node prisma/seed-quests-expanded.js && node prisma/seed-resources.js && node prisma/seed-shadow-scripts.js && node prisma/seed-writing-quests.js && node prisma/seed-writing-prompts.js && node prisma/seed-exam-quests.js && node prisma/seed-exam-questions.js && node prisma/seed-milestones.js",
     "db:count": "node prisma/count.js",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f app"
-  },
-  "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateWeeklyReport } from "@/lib/weekly-report";
 import { sendPushToSubscriptions } from "@/lib/push";
+import { getLocalStartOfWeek } from "@/lib/streak";
 
 // GET /api/analytics/cron — Triggered every Monday 01:00 UTC (08:00 ICT) via Vercel Cron
 // Generates weekly reports + sends push notifications for all users
@@ -9,7 +10,10 @@ import { sendPushToSubscriptions } from "@/lib/push";
 export async function GET(request: NextRequest) {
   // Auth: verify CRON_SECRET to prevent unauthorized triggers
   const secret = request.headers.get("x-cron-secret");
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
+  }
+  if (secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -21,9 +25,7 @@ export async function GET(request: NextRequest) {
       const userId = user.id;
 
       // ── 1. Weekly Report ─────────────────────────────────────────────────
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - 6);
-      weekStart.setHours(0, 0, 0, 0);
+      const weekStart = getLocalStartOfWeek();
 
       const existing = await prisma.weeklyReport.findFirst({
         where: { userId, createdAt: { gte: weekStart } },

@@ -13,7 +13,6 @@ import {
     TrendingUp,
     TrendingDown,
     Minus,
-    Loader2,
     Trophy,
     Target,
     ArrowLeft,

@@ -1,3 +1,5 @@
+import { addLocalDays } from "@/lib/streak";
+
 /**
  * SM-2 Spaced Repetition Algorithm
  * Based on SuperMemo SM-2 with modifications
@@ -80,9 +82,7 @@ export function calculateSrs(state: SrsState, rating: number): SrsResult {
     status = "mastered";
   }
 
-  const nextReview = new Date();
-  nextReview.setDate(nextReview.getDate() + intervalDays);
-  nextReview.setHours(0, 0, 0, 0);
+  const nextReview = addLocalDays(new Date(), intervalDays);
 
   return {
     intervalDays,
