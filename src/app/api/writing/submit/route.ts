@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { gradeSubmission, getPreviousScore, checkPersonalBest, syncWritingToMemory } from "@/lib/writing-grader";
 import { logEvent } from "@/lib/analytics";
+import { sanitizeUserContent, sanitizeUserContentWrapped } from "@/lib/ai-guard";
 import type { GrammarError } from "@/lib/writing-grader";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 
@@ -10,7 +11,7 @@ import type { InputJsonValue } from "@prisma/client/runtime/library";
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
     const { promptId, customPrompt, content, timeSpentSec } = body as {
@@ -24,8 +25,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "content is required" }, { status: 400 });
     }
 
+    // Sanitize user-supplied writing before it reaches the AI grader or is
+    // persisted to the DB. Wraps injection-shaped lines in <user_input>
+    // delimiters and clamps length so a malicious paste can't blow the token
+    // budget or steer the grader.
+    const sanitized = sanitizeUserContentWrapped(content);
+    const safeContent = sanitized.content;
+
     // Get prompt info
-    let promptInstruction = customPrompt || "Write about the given topic.";
+    let promptInstruction = sanitizeUserContent(customPrompt ?? "") || "Write about the given topic.";
     let promptType = "essay";
     let userLevel = "B1";
 
@@ -41,10 +49,17 @@ export async function POST(request: NextRequest) {
     // Get previous score for comparison
     const previousScore = await getPreviousScore(user.id, promptType);
 
-    // Grade with AI
-    const gradingResult = await gradeSubmission(content, promptInstruction, userLevel, previousScore);
+    // Grade with AI (use sanitized content; grader sees wrapped delimiters
+    // and treats them as data).
+    const gradingResult = await gradeSubmission(
+      safeContent,
+      promptInstruction,
+      userLevel,
+      previousScore,
+      { userId: user.id, route: "writing-submit", maxTokens: 1500 }
+    );
 
-    const wordCount = content.trim().split(/\s+/).length;
+    const wordCount = safeContent.trim().split(/\s+/).length;
 
     // Save submission
     const submission = await prisma.writingSubmission.create({
@@ -52,7 +67,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         promptId: promptId || null,
         customPrompt: customPrompt || null,
-        content,
+        content: safeContent,
         wordCount,
         timeSpentSec: timeSpentSec || 0,
         overallScore: gradingResult.overallScore,

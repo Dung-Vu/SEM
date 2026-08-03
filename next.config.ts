@@ -15,7 +15,7 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+    value: "camera=(), microphone=(self), geolocation=(), interest-cohort=()",
   },
   {
     key: "Strict-Transport-Security",
@@ -25,6 +25,8 @@ const securityHeaders = [
     // Conservative CSP. Inline styles and the PWA theme bootstrap script both
     // require 'unsafe-inline' / 'unsafe-eval'. Tighten if the app stops using
     // either. Service workers require 'self' on both default and connect-src.
+    // connect-src is scoped to the Aliyun Bailian inference endpoint + wss:
+    // for SSE streaming; widen only if a new upstream is integrated.
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
@@ -32,7 +34,8 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https:",
+      "connect-src 'self' https://coding-intl.dashscope.aliyuncs.com wss:",
+      "media-src 'self' blob:",
       "worker-src 'self' blob:",
       "manifest-src 'self'",
       "frame-ancestors 'none'",

@@ -1,5 +1,12 @@
 // AI Client — OpenAI-compatible API wrapper for Bailian/Qwen
 // Uses streaming for real-time responses
+//
+// As of Sprint 4 (cost control), this module delegates the raw HTTP call to
+// `aiCall` from `@/lib/ai-call`, which centralizes timeout, retries, and
+// logging. The legacy exports (`chatCompletion`, `generateSessionSummary`)
+// are kept stable so existing routes keep working unchanged.
+
+import { aiCall } from "@/lib/ai-call";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -144,43 +151,36 @@ Rules:
 
 export type ConversationMode = keyof typeof CONVERSATION_MODES;
 
-// Non-streaming chat completion
-export async function chatCompletion(messages: ChatMessage[]): Promise<string> {
+// Non-streaming chat completion. Delegates to the centralized aiCall helper.
+// The route layer (api/ai/chat/route.ts) is responsible for passing route + userId.
+// Default maxTokens bumped to 800 per Sprint 4 spec.
+export async function chatCompletion(
+  messages: ChatMessage[],
+  options: { userId?: string | null; route?: string; maxTokens?: number; temperature?: number } = {}
+): Promise<string> {
   const config = getConfig();
-  
   if (!config.apiKey) {
     throw new Error("AI_API_KEY not configured");
   }
 
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages,
-      max_tokens: 500,
-      temperature: 0.7,
-    }),
-    signal: AbortSignal.timeout(30000), // 30s — prevents indefinite hang
+  const result = await aiCall({
+    messages,
+    model: config.model,
+    maxTokens: options.maxTokens ?? 800,
+    temperature: options.temperature ?? 0.7,
+    userId: options.userId ?? null,
+    route: options.route ?? "ai-chat",
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${response.status} — ${error}`);
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
+  return result.content || "Sorry, I couldn't generate a response.";
 }
 
 // Generate session summary
 export async function generateSessionSummary(
   messages: ChatMessage[],
   mode: string,
-  durationMinutes: number
+  durationMinutes: number,
+  options: { userId?: string | null; route?: string } = {}
 ): Promise<string> {
   const summaryPrompt: ChatMessage[] = [
     {
@@ -209,5 +209,8 @@ Keep it concise, maximum 200 words.`,
     },
   ];
 
-  return chatCompletion(summaryPrompt);
+  return chatCompletion(summaryPrompt, {
+    userId: options.userId ?? null,
+    route: options.route ?? "ai-chat-summary",
+  });
 }

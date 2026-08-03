@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/current-user";
 import { logEvent } from "@/lib/analytics";
 import { buildSenseiSystemPrompt } from "@/lib/sensei-prompt";
 import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
+import { aiCallStream } from "@/lib/ai-call";
+import { sanitizeUserContentWrapped, TRUST_BOUNDARY_REMINDER } from "@/lib/ai-guard";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -37,11 +39,7 @@ export async function POST(request: Request) {
       mode: string;
     };
 
-    const baseUrl =
-      process.env.AI_BASE_URL ||
-      "https://coding-intl.dashscope.aliyuncs.com/v1";
     const apiKey = process.env.AI_API_KEY || "";
-    const model = process.env.AI_MODEL || "qwen3.5-plus";
 
     if (!apiKey) {
       return NextResponse.json({ error: "AI_API_KEY not configured" }, { status: 500 });
@@ -52,8 +50,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }
 
+    // Sanitize user-supplied content before it reaches the model. Wraps
+    // injection-shaped lines in <user_input> delimiters and clamps length.
+    const safeMessages: ChatMessage[] = Array.isArray(messages)
+      ? messages.map((m) =>
+          m.role === "user"
+            ? { ...m, content: sanitizeUserContentWrapped(m.content).content }
+            : m
+        )
+      : [];
+    let injectionSuspected = false;
+    for (const m of safeMessages) {
+      if (m.role !== "user") continue;
+      const r = sanitizeUserContentWrapped(m.content);
+      if (r.injectionSuspected) injectionSuspected = true;
+    }
+
     // Log speak_session_start when this is the first user message
-    if (user && messages.length === 1 && messages[0].role === "user") {
+    if (user && safeMessages.length === 1 && safeMessages[0].role === "user") {
       void logEvent(user.id, "speak_session_start", "speaking", undefined, undefined, { mode });
     }
 
@@ -67,64 +81,24 @@ export async function POST(request: Request) {
       }
     }
 
+    if (injectionSuspected) {
+      systemContent = `${systemContent}\n\n${TRUST_BOUNDARY_REMINDER}`;
+    }
+
     const systemMessage: ChatMessage = {
       role: "system",
       content: systemContent,
     };
 
-    const allMessages: ChatMessage[] = [systemMessage, ...messages];
+    const allMessages: ChatMessage[] = [systemMessage, ...safeMessages];
 
-    // Call upstream API with stream: true
-    const upstream = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: allMessages,
-        max_tokens: 500,
-        temperature: 0.7,
-        stream: true,
-      }),
-    });
-
-    if (!upstream.ok) {
-      const error = await upstream.text();
-      return NextResponse.json(
-        { error: `AI API error: ${upstream.status}`, details: error },
-        { status: 503 }
-      );
-    }
-
-    if (!upstream.body) {
-      return NextResponse.json({ error: "No stream body" }, { status: 500 });
-    }
-
-    // Pipe the SSE stream directly to the client
-    const upstreamBody = upstream.body;
-    if (!upstreamBody) {
-      return NextResponse.json({ error: "No stream body" }, { status: 500 });
-    }
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = upstreamBody.getReader();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              controller.close();
-              break;
-            }
-            // Forward raw SSE chunks as-is
-            controller.enqueue(value);
-          }
-        } catch (err) {
-          controller.error(err);
-        }
-      },
+    // Delegate to aiCallStream — handles timeout, retries, and SSE proxy.
+    const stream = aiCallStream({
+      messages: allMessages,
+      maxTokens: 1000,
+      temperature: 0.8,
+      userId: user?.id ?? null,
+      route: "ai-chat-stream",
     });
 
     return new Response(stream, {

@@ -1,8 +1,29 @@
 {
   "crons": [
     {
-      "path": "/api/analytics/cron",
+      "_comment": "Anki reminder — daily 08:00 Asia/Ho_Chi_Minh (UTC+7)",
+      "path": "/api/cron/anki-reminder",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "_comment": "Quest reminder — daily 20:00 Asia/Ho_Chi_Minh (UTC+7)",
+      "path": "/api/cron/quest-reminder",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "_comment": "Streak warning — daily 21:00 Asia/Ho_Chi_Minh (UTC+7)",
+      "path": "/api/cron/streak-warning",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "_comment": "Weekly report — Monday 08:00 Asia/Ho_Chi_Minh (UTC+7)",
+      "path": "/api/cron/weekly-report",
       "schedule": "0 1 * * 1"
+    },
+    {
+      "_comment": "AI insight — Wednesday 09:00 Asia/Ho_Chi_Minh (UTC+7)",
+      "path": "/api/cron/ai-insight",
+      "schedule": "0 2 * * 3"
     }
   ]
 }

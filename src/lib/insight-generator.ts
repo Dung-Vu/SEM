@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { aiCall, parallelWithLimit } from "@/lib/ai-call";
 
 type InsightType =
   | "weekly_summary"
@@ -25,6 +26,10 @@ interface InsightProfile {
   strongestSkill: string | null;
   ankiRetentionRate: number;
 }
+
+// Insights are short, low-stakes — use qwen-turbo for cost savings.
+const INSIGHTS_MODEL = process.env.AI_MODEL_INSIGHTS ?? "qwen-turbo";
+const INSIGHT_CONCURRENCY = 3; // Cap parallel upstream calls to 3.
 
 function buildPrompt(
   type: InsightType,
@@ -61,38 +66,6 @@ Learning Profile:
 
 Loại insight cần generate: ${type}
 `;
-}
-
-async function callQwen(prompt: string): Promise<string> {
-  const baseUrl = process.env.AI_BASE_URL || "https://coding-intl.dashscope.aliyuncs.com/v1";
-  const apiKey = process.env.AI_API_KEY || "";
-  const model = process.env.AI_MODEL || "qwen3.5-plus";
-
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Bạn là AI tutor tiếng Anh. Phân tích data học tập và đưa ra insight ngắn gọn, cụ thể, có thể hành động được. Trả lời bằng tiếng Việt. Tối đa 3 câu. Không chung chung. Không dùng emoji.",
-        },
-        { role: "user", content: prompt },
-      ],
-      stream: false,
-      max_tokens: 200,
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
-
-  if (!res.ok) throw new Error(`Qwen API error: ${res.status}`);
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() ?? "Chưa có đủ data để đưa ra insight.";
 }
 
 async function getStats(userId: string) {
@@ -142,7 +115,27 @@ export async function generateInsight(
 ): Promise<string> {
   const stats = await getStats(userId);
   const prompt = buildPrompt(type, profile, stats);
-  return callQwen(prompt);
+
+  try {
+    const result = await aiCall({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Bạn là AI tutor tiếng Anh. Phân tích data học tập và đưa ra insight ngắn gọn, cụ thể, có thể hành động được. Trả lời bằng tiếng Việt. Tối đa 3 câu. Không chung chung. Không dùng emoji.",
+        },
+        { role: "user", content: prompt },
+      ],
+      model: INSIGHTS_MODEL,
+      maxTokens: 400,
+      temperature: 0.7,
+      userId,
+      route: `insight:${type}`,
+    });
+    return result.content.trim() || "Chưa có đủ data để đưa ra insight.";
+  } catch {
+    return "Chưa có đủ data để đưa ra insight.";
+  }
 }
 
 export async function generateAndCacheInsights(userId: string): Promise<void> {
@@ -168,38 +161,45 @@ export async function generateAndCacheInsights(userId: string): Promise<void> {
     },
   });
 
-  for (const type of types) {
-    try {
-      // Check if we already have a fresh one (less than 24h)
-      const existing = await prisma.insightCache.findFirst({
-        where: {
-          userId,
-          type,
-          createdAt: { gte: new Date(Date.now() - 24 * 3600e3) },
-        },
-      });
-      if (existing) continue;
+  // Find which insight types already have a fresh cache (skip those).
+  const freshCutoff = new Date(Date.now() - 24 * 3600e3);
+  const existing = await prisma.insightCache.findMany({
+    where: { userId, createdAt: { gte: freshCutoff } },
+    select: { type: true },
+  });
+  const freshTypes = new Set(existing.map((e) => e.type));
+  const toGenerate = types.filter((t) => !freshTypes.has(t));
 
-      let content: string;
+  if (toGenerate.length === 0) return;
+
+  // Run insight generation in parallel, capped to INSIGHT_CONCURRENCY.
+  // Each worker is independent — one failure must not break the batch.
+  await parallelWithLimit(
+    toGenerate,
+    INSIGHT_CONCURRENCY,
+    async (type) => {
       try {
-        content = await generateInsight(userId, type, profile);
-      } catch {
-        // Qwen timeout/error — use pre-written fallback template
-        content = getFallbackInsight(type, profile);
-      }
+        let content: string;
+        try {
+          content = await generateInsight(userId, type, profile);
+        } catch {
+          // Qwen timeout/error — use pre-written fallback template
+          content = getFallbackInsight(type, profile);
+        }
 
-      await prisma.insightCache.create({
-        data: {
-          userId,
-          type,
-          content,
-          expiresAt: new Date(Date.now() + 24 * 3600e3),
-        },
-      });
-    } catch {
-      // Non-blocking — insight generation should never break core features
+        await prisma.insightCache.create({
+          data: {
+            userId,
+            type,
+            content,
+            expiresAt: new Date(Date.now() + 24 * 3600e3),
+          },
+        });
+      } catch {
+        // Non-blocking — insight generation should never break core features
+      }
     }
-  }
+  );
 }
 
 // ─── Fallback Templates (when AI is unavailable) ───────────────────────────

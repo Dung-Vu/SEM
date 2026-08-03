@@ -4,7 +4,11 @@ import { classifyAndUpdateErrors, parseCorrectionsFromMessages } from "@/lib/err
 import { calcSessionPerformance, adjustDifficulty } from "@/lib/difficulty-engine";
 import { syncVocabMemory, trackVocabUsage } from "@/lib/vocab-memory";
 import { logEvent } from "@/lib/analytics";
+import { aiCall } from "@/lib/ai-call";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
+
+// Lighter model for the debrief / journey narrative — short, low-stakes copy.
+const DEBRIEF_MODEL = process.env.AI_MODEL_DEBRIEF ?? "qwen-turbo";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -93,7 +97,7 @@ export async function processSessionEnd(
 
   // 6. Generate AI debrief
   const debrief = await generateDebrief(
-    data, corrections.length, uniqueVocabUsed, performanceScore, difficultyUsed
+    userId, data, corrections.length, uniqueVocabUsed, performanceScore, difficultyUsed
   );
 
   // 7. Save TutorSession
@@ -146,47 +150,36 @@ export async function processSessionEnd(
 // ─── AI Debrief ─────────────────────────────────────────────────────────
 
 async function generateDebrief(
+  userId: string,
   data: SessionData,
   correctionsCount: number,
   vocabUsed: string[],
   performanceScore: number,
   difficulty: number
 ): Promise<string> {
-  const baseUrl = process.env.AI_BASE_URL || "https://coding-intl.dashscope.aliyuncs.com/v1";
-  const apiKey = process.env.AI_API_KEY || "";
-  const model = process.env.AI_MODEL || "qwen3.5-plus";
-
   const durationMin = Math.round(data.durationSec / 60);
   const userMsgCount = data.messages.filter(m => m.role === "user").length;
 
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: "Bạn là AI tutor. Viết debrief buổi học tiếng Anh. Trả lời bằng tiếng Việt, 3 câu: (1) điểm tốt, (2) cần cải thiện, (3) 1 việc cụ thể cho buổi tới. Encouraging nhưng honest. Không emoji.",
-          },
-          {
-            role: "user",
-            content: `Mode: ${data.mode}, Duration: ${durationMin} min, Messages: ${userMsgCount}, Corrections: ${correctionsCount}, Vocab targets used: ${vocabUsed.join(", ") || "none"}, Performance: ${performanceScore}/100, Difficulty: ${difficulty}/10`,
-          },
-        ],
-        stream: false,
-        max_tokens: 200,
-      }),
-      signal: AbortSignal.timeout(10000),
+    const result = await aiCall({
+      messages: [
+        {
+          role: "system",
+          content: "Bạn là AI tutor. Viết debrief buổi học tiếng Anh. Trả lời bằng tiếng Việt, 3 câu: (1) điểm tốt, (2) cần cải thiện, (3) 1 việc cụ thể cho buổi tới. Encouraging nhưng honest. Không emoji.",
+        },
+        {
+          role: "user",
+          content: `Mode: ${data.mode}, Duration: ${durationMin} min, Messages: ${userMsgCount}, Corrections: ${correctionsCount}, Vocab targets used: ${vocabUsed.join(", ") || "none"}, Performance: ${performanceScore}/100, Difficulty: ${difficulty}/10`,
+        },
+      ],
+      model: DEBRIEF_MODEL,
+      maxTokens: 800,
+      temperature: 0.7,
+      userId,
+      route: "session-debrief",
     });
 
-    if (!res.ok) throw new Error(`AI error: ${res.status}`);
-    const json = await res.json();
-    return json.choices?.[0]?.message?.content?.trim() ?? getFallbackDebrief(correctionsCount, vocabUsed, performanceScore);
+    return result.content.trim() || getFallbackDebrief(correctionsCount, vocabUsed, performanceScore);
   } catch {
     return getFallbackDebrief(correctionsCount, vocabUsed, performanceScore);
   }
@@ -247,38 +240,27 @@ async function updateStrengthsWeaknesses(userId: string): Promise<void> {
 
 async function generateJourneyNarrative(userId: string): Promise<void> {
   const memory = await getTutorMemory(userId);
-  const baseUrl = process.env.AI_BASE_URL || "https://coding-intl.dashscope.aliyuncs.com/v1";
-  const apiKey = process.env.AI_API_KEY || "";
-  const model = process.env.AI_MODEL || "qwen3.5-plus";
 
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: "Viết 2-3 câu tiếng Việt mô tả hành trình học tiếng Anh. Warm, encouraging, cụ thể. Không emoji.",
-          },
-          {
-            role: "user",
-            content: `Sessions: ${memory.totalSessions}, Difficulty: ${memory.currentDifficulty}/10, Strengths: ${memory.strengths.join(", ") || "đang đánh giá"}, Weaknesses: ${memory.persistentWeaknesses.join(", ") || "đang đánh giá"}`,
-          },
-        ],
-        stream: false,
-        max_tokens: 150,
-      }),
-      signal: AbortSignal.timeout(10000),
+    const result = await aiCall({
+      messages: [
+        {
+          role: "system",
+          content: "Viết 2-3 câu tiếng Việt mô tả hành trình học tiếng Anh. Warm, encouraging, cụ thể. Không emoji.",
+        },
+        {
+          role: "user",
+          content: `Sessions: ${memory.totalSessions}, Difficulty: ${memory.currentDifficulty}/10, Strengths: ${memory.strengths.join(", ") || "đang đánh giá"}, Weaknesses: ${memory.persistentWeaknesses.join(", ") || "đang đánh giá"}`,
+        },
+      ],
+      model: DEBRIEF_MODEL,
+      maxTokens: 800,
+      temperature: 0.7,
+      userId,
+      route: "journey-narrative",
     });
 
-    if (!res.ok) return;
-    const json = await res.json();
-    const narrative = json.choices?.[0]?.message?.content?.trim();
+    const narrative = result.content.trim();
     if (narrative) {
       await updateTutorMemory(userId, { journeySummary: narrative });
     }

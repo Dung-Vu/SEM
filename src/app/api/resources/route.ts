@@ -10,7 +10,7 @@ const RESOURCE_STATUSES = new Set(["want", "in_progress", "done"]);
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const resources = await prisma.resource.findMany({
       where: { userId: user.id },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     };
 
     const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // Update status of existing resource
     if (action === "update_status" && id && status) {

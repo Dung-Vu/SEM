@@ -10,7 +10,7 @@ import type { Prisma } from "@prisma/client";
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const sessions = await prisma.activityLog.findMany({
       where: { userId: user.id, source: "shadowing" },
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const rating  = Math.min(5,   Math.max(1, Math.round(Number(rawRating) || 3)));
 
     const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // EXP: 2 EXP per minute
     const expGain = Math.max(5, Math.floor(minutes * 2));

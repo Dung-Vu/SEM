@@ -8,7 +8,7 @@ import type { Prisma } from "@prisma/client";
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const achievements = await prisma.achievement.findMany({ orderBy: { id: "asc" } });
     const userAchievements = await prisma.userAchievement.findMany({ where: { userId: user.id } });

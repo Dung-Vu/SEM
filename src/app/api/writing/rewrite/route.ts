@@ -39,10 +39,20 @@ export async function POST(request: NextRequest) {
 
     // Grade the rewrite
     const previousScore = await getPreviousScore(user.id, promptType);
-    const gradingResult = await gradeSubmission(content, promptInstruction, userLevel, previousScore);
+    const gradingResult = await gradeSubmission(
+      content,
+      promptInstruction,
+      userLevel,
+      previousScore,
+      { userId: user.id, route: "writing-rewrite", maxTokens: 1200 }
+    );
 
     // Compare versions
-    const comparison = await compareVersions(parent.content, content);
+    const comparison = await compareVersions(parent.content, content, {
+      userId: user.id,
+      route: "writing-rewrite-compare",
+      maxTokens: 1200,
+    });
 
     const wordCount = content.trim().split(/\s+/).length;
 

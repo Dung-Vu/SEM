@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { chatCompletion, generateSessionSummary, CONVERSATION_MODES, type ConversationMode } from "@/lib/ai-client";
 import { getCurrentUser } from "@/lib/current-user";
 import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
+import { sanitizeUserContent, sanitizeUserContentWrapped, TRUST_BOUNDARY_REMINDER } from "@/lib/ai-guard";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -40,20 +41,50 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "messages must be an array of chat messages" }, { status: 400 });
       }
 
+      // Sanitize user-supplied content at the route boundary so injection-shaped
+      // text gets wrapped in <user_input> delimiters and the system prompt is
+      // reinforced with a trust-boundary reminder.
+      const safeClientMessages = clientMessages.map((m) =>
+        m.role === "user"
+          ? { ...m, content: sanitizeUserContentWrapped(m.content).content }
+          : m
+      );
+      let injectionSuspected = false;
+      for (const m of safeClientMessages) {
+        if (m.role !== "user") continue;
+        const r = sanitizeUserContentWrapped(m.content);
+        if (r.injectionSuspected) injectionSuspected = true;
+      }
+
       // Regular chat. If the caller supplies its own system prompt, respect it
       // instead of prepending a conversation-mode prompt that can override task intent.
       const modeConfig = CONVERSATION_MODES[mode as ConversationMode];
-      const hasCustomSystemPrompt = clientMessages.some((m) => m.role === "system");
+      const hasCustomSystemPrompt = safeClientMessages.some((m) => m.role === "system");
       if (!hasCustomSystemPrompt && !modeConfig) {
         return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
       }
 
+      const baseSystem = hasCustomSystemPrompt
+        ? safeClientMessages.find((m) => m.role === "system")!.content
+        : modeConfig.systemPrompt;
+      const systemContent = injectionSuspected
+        ? `${baseSystem}\n\n${TRUST_BOUNDARY_REMINDER}`
+        : baseSystem;
+
       const allMessages: ChatMessage[] = hasCustomSystemPrompt
-        ? clientMessages
-        : [{ role: "system", content: modeConfig.systemPrompt }, ...clientMessages];
+        ? [
+            ...safeClientMessages.filter((m) => m.role !== "system"),
+            { role: "system", content: systemContent },
+          ]
+        : [{ role: "system", content: systemContent }, ...safeClientMessages.filter((m) => m.role !== "system")];
 
       try {
-        const reply = await chatCompletion(allMessages);
+        const reply = await chatCompletion(allMessages, {
+          userId: user?.id ?? null,
+          route: "ai-chat",
+          maxTokens: 800,
+          temperature: 0.7,
+        });
         return NextResponse.json({ reply });
       } catch (aiError) {
         const errorMessage = aiError instanceof Error ? aiError.message : "AI service unavailable";
@@ -69,10 +100,18 @@ export async function POST(request: Request) {
     if (action === "summary") {
       // Generate session summary
       try {
+        const safeMessages = Array.isArray(messages)
+          ? messages.map((m: ChatMessage) =>
+              m.role === "user"
+                ? { ...m, content: sanitizeUserContent(m.content) }
+                : m
+            )
+          : [];
         const summary = await generateSessionSummary(
-          messages || [],
+          safeMessages,
           mode || "free_talk",
-          durationMinutes || 0
+          durationMinutes || 0,
+          { userId: user?.id ?? null, route: "ai-chat-summary" }
         );
         return NextResponse.json({ summary });
       } catch (aiError) {

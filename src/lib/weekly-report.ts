@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getLocalDateKey, getLocalDayOfWeekFromDateKey, getLocalWeekInfo } from "@/lib/streak";
+import { aiCall } from "@/lib/ai-call";
 
 interface WeeklyReportData {
   weekNumber: number;
@@ -33,41 +34,6 @@ interface VsLastWeek {
 function formatPeriod(weekAgo: Date, now: Date): string {
   const fmt = (d: Date) => d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
   return `${fmt(weekAgo)} - ${fmt(now)}`;
-}
-
-async function callQwen(prompt: string): Promise<string> {
-  const baseUrl = process.env.AI_BASE_URL || "https://coding-intl.dashscope.aliyuncs.com/v1";
-  const apiKey = process.env.AI_API_KEY || "";
-  const model = process.env.AI_MODEL || "qwen3.5-plus";
-
-  try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Bạn là coach tiếng Anh. Viết tóm tắt tuần học tập ngắn gọn bằng tiếng Việt, tối đa 3 câu. Cụ thể, không sáo rỗng.",
-          },
-          { role: "user", content: prompt },
-        ],
-        stream: false,
-        max_tokens: 200,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) return "";
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() ?? "";
-  } catch {
-    return "";
-  }
 }
 
 export async function generateWeeklyReport(userId: string): Promise<WeeklyReportData | null> {
@@ -165,7 +131,7 @@ export async function generateWeeklyReport(userId: string): Promise<WeeklyReport
     {
       skill: "Writing",
       sessionsCount: journalEntries.length,
-      scoreChange: journalEntries.length >= 5 ? 3 : journalEntries.length > 0 ? 1 : -1,
+      scoreChange: journalEntries.length >= 5 ? 3 : journalEntries.length > 1 ? 1 : -1,
       trend: journalEntries.length >= 5 ? "up" : journalEntries.length > 0 ? "stable" : "down",
     },
   ];
@@ -188,7 +154,8 @@ export async function generateWeeklyReport(userId: string): Promise<WeeklyReport
     .filter((s) => s.trend === "up")
     .sort((a, b) => b.scoreChange - a.scoreChange)[0]?.skill ?? "Chưa có cải thiện rõ rệt";
 
-  // AI summary
+  // AI summary — single call (the parallel-insight pattern is preserved implicitly
+  // because the consumer `generateAndCacheInsights` already runs in parallel).
   const summaryPrompt = `
 Tuần ${weekNumber}/${year} (${period}):
 - Tổng EXP: ${totalExp} (tuần trước: ${lastWeekExp})
@@ -200,7 +167,27 @@ Tuần ${weekNumber}/${year} (${period}):
 
 Hãy tóm tắt tuần học tập này và đưa ra 1 khuyến nghị cụ thể cho tuần tới.`;
 
-  const aiResponse = await callQwen(summaryPrompt);
+  let aiResponse = "";
+  try {
+    const result = await aiCall({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Bạn là coach tiếng Anh. Viết tóm tắt tuần học tập ngắn gọn bằng tiếng Việt, tối đa 3 câu. Cụ thể, không sáo rỗng.",
+        },
+        { role: "user", content: summaryPrompt },
+      ],
+      maxTokens: 2000,
+      temperature: 0.7,
+      userId,
+      route: "weekly-report",
+    });
+    aiResponse = result.content.trim();
+  } catch {
+    aiResponse = "";
+  }
+
   const [summary, ...recParts] = aiResponse.split(/\n\n|\. Tuần tới/);
   const topRecommendation = recParts.join(" ").trim() || "Duy trì thói quen học mỗi ngày, tập trung vào kỹ năng yếu nhất.";
 

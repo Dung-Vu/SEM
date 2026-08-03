@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "type and level are required" }, { status: 400 });
     }
 
-    const generated = await generateCustomPrompt({ type, level, topic, focusSkill });
+    const generated = await generateCustomPrompt(
+      { type, level, topic, focusSkill },
+      { userId: user.id, route: "writing-prompts", maxTokens: 600 }
+    );
 
     const prompt = await prisma.writingPrompt.create({
       data: {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { logEvent } from "@/lib/analytics";
+import { aiCall } from "@/lib/ai-call";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -54,12 +55,9 @@ export async function gradeSubmission(
   content: string,
   promptInstruction: string,
   userLevel: string,
-  previousScore?: number
+  previousScore?: number,
+  options: { userId?: string | null; route?: string; maxTokens?: number } = {}
 ): Promise<GradingResult> {
-  const baseUrl = process.env.AI_BASE_URL || "https://coding-intl.dashscope.aliyuncs.com/v1";
-  const apiKey = process.env.AI_API_KEY || "";
-  const model = process.env.AI_MODEL || "qwen3.5-plus";
-
   const gradingPrompt = `You are an expert English writing examiner grading a ${userLevel} level student.
 
 WRITING PROMPT:
@@ -113,28 +111,18 @@ Grading standards for ${userLevel}:
 - C1: 80+ = good, 60-79 = average, <60 = needs work`;
 
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: "You are an English writing examiner. Return ONLY valid JSON." },
-          { role: "user", content: gradingPrompt },
-        ],
-        stream: false,
-        max_tokens: 1500,
-        temperature: 0.3,
-      }),
-      signal: AbortSignal.timeout(20000),
+    const result = await aiCall({
+      messages: [
+        { role: "system", content: "You are an English writing examiner. Return ONLY valid JSON." },
+        { role: "user", content: gradingPrompt },
+      ],
+      maxTokens: options.maxTokens ?? 1500,
+      temperature: 0.3,
+      userId: options.userId ?? null,
+      route: options.route ?? "writing-grade",
     });
 
-    if (!res.ok) throw new Error(`AI API error: ${res.status}`);
-    const data = await res.json();
-    const text: string = data.choices?.[0]?.message?.content?.trim() ?? "";
+    const text = result.content.trim();
 
     // Extract JSON from response (may be wrapped in markdown code blocks)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -222,33 +210,25 @@ function getFallbackGrading(content: string, previousScore?: number): GradingRes
 
 // ─── Generate Custom Prompt ─────────────────────────────────────────────
 
-export async function generateCustomPrompt(params: {
-  type: string;
-  level: string;
-  topic?: string;
-  focusSkill?: string;
-}): Promise<{ title: string; instruction: string; minWords: number; maxWords: number; timeLimit: number | null }> {
-  const baseUrl = process.env.AI_BASE_URL || "https://coding-intl.dashscope.aliyuncs.com/v1";
-  const apiKey = process.env.AI_API_KEY || "";
-  const model = process.env.AI_MODEL || "qwen3.5-plus";
-
+export async function generateCustomPrompt(
+  params: {
+    type: string;
+    level: string;
+    topic?: string;
+    focusSkill?: string;
+  },
+  options: { userId?: string | null; route?: string; maxTokens?: number } = {}
+): Promise<{ title: string; instruction: string; minWords: number; maxWords: number; timeLimit: number | null }> {
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: "Generate a writing assignment. Return ONLY valid JSON.",
-          },
-          {
-            role: "user",
-            content: `Generate a writing assignment:
+    const result = await aiCall({
+      messages: [
+        {
+          role: "system",
+          content: "Generate a writing assignment. Return ONLY valid JSON.",
+        },
+        {
+          role: "user",
+          content: `Generate a writing assignment:
 - Type: ${params.type}
 - Level: ${params.level}
 - Topic: ${params.topic || "general"}
@@ -262,18 +242,15 @@ Return JSON:
   "max_words": number,
   "time_limit": minutes or null
 }`,
-          },
-        ],
-        stream: false,
-        max_tokens: 300,
-        temperature: 0.8,
-      }),
-      signal: AbortSignal.timeout(10000),
+        },
+      ],
+      maxTokens: options.maxTokens ?? 600,
+      temperature: 0.8,
+      userId: options.userId ?? null,
+      route: options.route ?? "writing-prompt",
     });
 
-    if (!res.ok) throw new Error(`AI API error: ${res.status}`);
-    const data = await res.json();
-    const text: string = data.choices?.[0]?.message?.content?.trim() ?? "";
+    const text = result.content.trim();
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON in response");
@@ -301,28 +278,21 @@ Return JSON:
 
 // ─── Compare Versions (Rewrite) ─────────────────────────────────────────
 
-export async function compareVersions(v1: string, v2: string): Promise<ComparisonResult> {
-  const baseUrl = process.env.AI_BASE_URL || "https://coding-intl.dashscope.aliyuncs.com/v1";
-  const apiKey = process.env.AI_API_KEY || "";
-  const model = process.env.AI_MODEL || "qwen3.5-plus";
-
+export async function compareVersions(
+  v1: string,
+  v2: string,
+  options: { userId?: string | null; route?: string; maxTokens?: number } = {}
+): Promise<ComparisonResult> {
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: "Compare two versions of a writing assignment. Return ONLY valid JSON.",
-          },
-          {
-            role: "user",
-            content: `Compare these two versions of the same writing assignment:
+    const result = await aiCall({
+      messages: [
+        {
+          role: "system",
+          content: "Compare two versions of a writing assignment. Return ONLY valid JSON.",
+        },
+        {
+          role: "user",
+          content: `Compare these two versions of the same writing assignment:
 
 VERSION 1 (original): "${v1}"
 
@@ -335,18 +305,15 @@ Return JSON:
   "score_change_estimate": <-20 to +20>,
   "summary": "<2 sentences Vietnamese: what improved, what to focus on next>"
 }`,
-          },
-        ],
-        stream: false,
-        max_tokens: 400,
-        temperature: 0.3,
-      }),
-      signal: AbortSignal.timeout(15000),
+        },
+      ],
+      maxTokens: options.maxTokens ?? 1200,
+      temperature: 0.3,
+      userId: options.userId ?? null,
+      route: options.route ?? "writing-rewrite",
     });
 
-    if (!res.ok) throw new Error(`AI API error: ${res.status}`);
-    const data = await res.json();
-    const text: string = data.choices?.[0]?.message?.content?.trim() ?? "";
+    const text = result.content.trim();
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON");

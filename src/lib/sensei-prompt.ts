@@ -2,7 +2,70 @@ import { prisma } from "@/lib/prisma";
 import { getTutorMemory } from "@/lib/tutor-memory";
 import { DIFFICULTY_PROMPTS } from "@/lib/difficulty-engine";
 
-// ─── SENSEI System Prompt Builder ───────────────────────────────────────
+// ─── Sprint 2: in-memory LRU cache for system prompts ────────────────────
+// The system prompt only depends on (userId, mode, optional topic). Building it
+// is several DB round-trips, so we cache the result for 5 minutes per key.
+// Cache is best-effort — a builder failure must NEVER poison the cache and
+// must NEVER crash the chat route, so the wrapper wraps in try/catch.
+
+// Per-process counters. Exposed via /api/admin/sensei-cache-stats for runtime
+// observability.
+export const senseiCacheStats = {
+  hits: 0,
+  misses: 0,
+  errors: 0,
+};
+
+const TTL_MS = 5 * 60_000; // 5 minutes
+const MAX_ENTRIES = 50;
+
+interface CacheEntry {
+  expiresAt: number;
+  topic: string | undefined;
+  value: string;
+}
+
+const senseiCache = new Map<string, CacheEntry>();
+
+function cacheKey(userId: string, mode: string, topic: string | undefined): string {
+  // topic is part of the rendered prompt; include it in the key.
+  return `${userId}::${mode}::${topic ?? ""}`;
+}
+
+function rememberEntry(key: string, entry: CacheEntry) {
+  if (!senseiCache.has(key) && senseiCache.size >= MAX_ENTRIES) {
+    // Map iteration order = insertion order → drop the oldest.
+    const oldest = senseiCache.keys().next().value;
+    if (oldest) senseiCache.delete(oldest);
+  }
+  senseiCache.set(key, entry);
+}
+
+/** Reset cache + counters. Tests-only. */
+export function _resetSenseiCacheForTests(): void {
+  senseiCache.clear();
+  senseiCacheStats.hits = 0;
+  senseiCacheStats.misses = 0;
+  senseiCacheStats.errors = 0;
+}
+
+export interface SenseiCacheSnapshot {
+  hits: number;
+  misses: number;
+  errors: number;
+  size: number;
+}
+
+export function getSenseiCacheStats(): SenseiCacheSnapshot {
+  return {
+    hits: senseiCacheStats.hits,
+    misses: senseiCacheStats.misses,
+    errors: senseiCacheStats.errors,
+    size: senseiCache.size,
+  };
+}
+
+// ─── SENSEI System Prompt Builder ────────────────────────────────────────
 
 /**
  * Build a memory-aware system prompt for Speak AI sessions.
@@ -17,6 +80,37 @@ import { DIFFICULTY_PROMPTS } from "@/lib/difficulty-engine";
  * Target: ~800 tokens max system prompt.
  */
 export async function buildSenseiSystemPrompt(
+  userId: string,
+  mode: string,
+  topic?: string
+): Promise<string> {
+  const key = cacheKey(userId, mode, topic);
+  const now = Date.now();
+  const cached = senseiCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    senseiCacheStats.hits++;
+    // Touch — re-insert to mark as recently used. Cheap because the cache is
+    // small (<=50 entries).
+    senseiCache.delete(key);
+    senseiCache.set(key, cached);
+    return cached.value;
+  }
+  // Drop expired entry proactively.
+  if (cached) senseiCache.delete(key);
+
+  senseiCacheStats.misses++;
+  try {
+    const value = await buildSenseiSystemPromptUncached(userId, mode, topic);
+    rememberEntry(key, { expiresAt: now + TTL_MS, topic, value });
+    return value;
+  } catch (err) {
+    senseiCacheStats.errors++;
+    console.error("[sensei-prompt] build failed; not caching:", err);
+    throw err;
+  }
+}
+
+async function buildSenseiSystemPromptUncached(
   userId: string,
   mode: string,
   topic?: string
