@@ -3,6 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { sendPushToSubscription, type PushPayload } from "@/lib/push";
 import { assertInternalRequest } from "@/lib/server-security";
+import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
+
+const MAX_FIELD_LENGTH = 200;
+
+function sanitizePayload(payload: PushPayload): PushPayload | null {
+  if (!payload || typeof payload !== "object") return null;
+  if (typeof payload.title !== "string" || payload.title.length === 0 || payload.title.length > MAX_FIELD_LENGTH) return null;
+  if (typeof payload.body !== "string" || payload.body.length === 0 || payload.body.length > MAX_FIELD_LENGTH) return null;
+  const url = payload.url === undefined ? undefined : (typeof payload.url === "string" && payload.url.length <= MAX_FIELD_LENGTH ? payload.url : null);
+  const tag = payload.tag === undefined ? undefined : (typeof payload.tag === "string" && payload.tag.length <= MAX_FIELD_LENGTH ? payload.tag : null);
+  if (url === null || tag === null) return null;
+  return { title: payload.title, body: payload.body, url, tag };
+}
 
 // POST /api/push/send — send push notification to all user subscriptions
 // Body: { title, body, url, tag }
@@ -12,14 +25,26 @@ export async function POST(req: NextRequest) {
     const unauthorized = assertInternalRequest(req);
     if (unauthorized) return unauthorized;
 
-    const payload: PushPayload = await req.json();
-
-    if (!payload.title || !payload.body) {
-      return NextResponse.json({ error: "title and body required" }, { status: 400 });
-    }
-
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const rl = consumeRateLimit(rateLimitKeyFromRequest(req, user.id), {
+      bucket: "push-send",
+      perMinute: 10,
+      perDay: 100,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfterSec: rl.retryAfterSec },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
+    const payload: PushPayload = await req.json();
+    const safe = sanitizePayload(payload);
+    if (!safe) {
+      return NextResponse.json({ error: "title and body required" }, { status: 400 });
+    }
 
     // Get all subscriptions for this user
     const subs = await prisma.pushSubscription.findMany({
@@ -35,7 +60,7 @@ export async function POST(req: NextRequest) {
     const failed: string[] = [];
 
     for (const sub of subs) {
-      const ok = await sendPushToSubscription(sub, payload);
+      const ok = await sendPushToSubscription(sub, safe);
       if (ok === true) sent++;
       else if (ok === "expired") failed.push(sub.id);
     }
@@ -56,6 +81,21 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const unauthorized = assertInternalRequest(req);
   if (unauthorized) return unauthorized;
+
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  const rl = consumeRateLimit(rateLimitKeyFromRequest(req, user.id), {
+    bucket: "push-send-get",
+    perMinute: 5,
+    perDay: 30,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded", retryAfterSec: rl.retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
 
   const type = new URL(req.url).searchParams.get("type") || "reminder";
 
@@ -107,8 +147,6 @@ export async function GET(req: NextRequest) {
 
   const payload = payloads[type] ?? payloads.reminder;
 
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
   const subs = await prisma.pushSubscription.findMany({
     where: { userId: user.id },
     select: { id: true, endpoint: true, p256dh: true, auth: true },

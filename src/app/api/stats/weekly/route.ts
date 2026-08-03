@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
 import { getLocalWeekInfo } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Add EXP for weekly assessment with transaction
     const expGain = 50;
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const awarded = await awardExp(tx, user.id, expGain);
       await tx.weeklyStatsLog.create({
         data: {

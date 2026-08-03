@@ -4,6 +4,7 @@ import { classifyAndUpdateErrors, parseCorrectionsFromMessages } from "@/lib/err
 import { calcSessionPerformance, adjustDifficulty } from "@/lib/difficulty-engine";
 import { syncVocabMemory, trackVocabUsage } from "@/lib/vocab-memory";
 import { logEvent } from "@/lib/analytics";
+import type { InputJsonValue } from "@prisma/client/runtime/library";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -106,8 +107,8 @@ export async function processSessionEnd(
       messageCount: data.messages.length,
       difficultyUsed,
       performanceScore,
-      corrections: corrections as unknown as import("@prisma/client").Prisma.InputJsonValue,
-      newErrors: newErrors as unknown as import("@prisma/client").Prisma.InputJsonValue,
+      corrections: corrections as unknown as InputJsonValue,
+      newErrors: newErrors as unknown as InputJsonValue,
       vocabUsed: uniqueVocabUsed,
       aiDebrief: debrief,
     },

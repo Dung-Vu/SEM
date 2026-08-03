@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
 import { getLocalDateKey } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 // GET — List reading sessions
 export async function GET() {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     const safeNotes = typeof notes === "string" ? notes.trim().slice(0, 1000) : "";
     const description = `${safeTitle}|${safeCategory}|${safeMinutes}|${safePages}|${safeNotes}`;
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.activityLog.create({
         data: {
           userId: user.id,

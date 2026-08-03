@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { logEvent } from "@/lib/analytics";
 import { buildSenseiSystemPrompt } from "@/lib/sensei-prompt";
+import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -11,6 +12,25 @@ interface ChatMessage {
 
 export async function POST(request: Request) {
   try {
+    const user = await getCurrentUser();
+    const rl = consumeRateLimit(rateLimitKeyFromRequest(request, user?.id ?? null), {
+      bucket: "ai-chat-stream",
+      // Streaming is the heaviest path. Cap lower than chat.
+      perMinute: 10,
+      perDay: 300,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfterSec: rl.retryAfterSec },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rl.retryAfterSec),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { messages, mode } = body as {
       messages: ChatMessage[];
@@ -31,9 +51,6 @@ export async function POST(request: Request) {
     if (!modeConfig) {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }
-
-    // Single user lookup — shared across logging + SENSEI prompt
-    const user = await getCurrentUser();
 
     // Log speak_session_start when this is the first user message
     if (user && messages.length === 1 && messages[0].role === "user") {
@@ -86,9 +103,13 @@ export async function POST(request: Request) {
     }
 
     // Pipe the SSE stream directly to the client
+    const upstreamBody = upstream.body;
+    if (!upstreamBody) {
+      return NextResponse.json({ error: "No stream body" }, { status: 500 });
+    }
     const stream = new ReadableStream({
       async start(controller) {
-        const reader = upstream.body!.getReader();
+        const reader = upstreamBody.getReader();
 
         try {
           while (true) {

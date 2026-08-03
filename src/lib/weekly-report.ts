@@ -123,9 +123,12 @@ export async function generateWeeklyReport(userId: string): Promise<WeeklyReport
     const key = getLocalDateKey(log.createdAt);
     dayMap[key] = (dayMap[key] ?? 0) + log.amount;
   }
-  const bestDayKey = Object.keys(dayMap).reduce((a, b) => (dayMap[a] >= dayMap[b] ? a : b), Object.keys(dayMap)[0] ?? "");
+  const dayKeys = Object.keys(dayMap);
+  const bestDayKey = dayKeys.length > 0
+    ? dayKeys.reduce((a, b) => (dayMap[a]! >= dayMap[b]! ? a : b))
+    : "";
   const bestDay = bestDayKey
-    ? `${dayNames[getLocalDayOfWeekFromDateKey(bestDayKey)]} — ${dayMap[bestDayKey]} EXP`
+    ? `${dayNames[getLocalDayOfWeekFromDateKey(bestDayKey)] ?? "?"} — ${dayMap[bestDayKey]} EXP`
     : "Chưa có data";
 
   // Vs last week — calculate last week's study time with same formula

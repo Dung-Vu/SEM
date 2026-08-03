@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { awardExp } from "@/lib/exp";
 import { getLocalDateKey } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 /**
  * Auto-tick a quest if not already completed today.
@@ -16,7 +17,7 @@ export async function autoTickQuest(userId: string, questKey: string): Promise<n
 
     if (!template) return 0;
 
-    const awarded = await prisma.$transaction(async (tx) => {
+    const awarded = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updated = await tx.questProgress.updateMany({
         where: { userId, questKey, date: today, completed: false },
         data: { completed: true, completedAt: new Date() },

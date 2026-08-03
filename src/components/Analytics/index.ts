@@ -1,15 +1,15 @@
 export { OverallScoreBanner } from "./OverallScoreBanner";
-export { SkillRadarConsistency } from "./SkillRadarConsistency";
-export { ActivityHeatmap } from "./ActivityHeatmap";
+export { ActivityHeatmap } from "./dynamic";
 export { SkillVelocityList } from "./SkillVelocityList";
 export { PredictionCard } from "./PredictionCard";
-export { ActivityBarChart } from "./ActivityBarChart";
+export { ActivityBarChart } from "./dynamic";
 export { WeaknessPanel } from "./WeaknessPanel";
 export { LevelPredictionCard } from "./LevelPredictionCard";
-export { VelocityLineChart } from "./VelocityLineChart";
+export { VelocityLineChart } from "./dynamic";
 export { AIInsightList } from "./AIInsightList";
 export { ActivityStream } from "./ActivityStream";
 export { WeeklyReportLink } from "./WeeklyReportLink";
+export { SkillRadarConsistency } from "./dynamic";
 export type {
   LearningProfile,
   Weakness,

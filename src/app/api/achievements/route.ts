@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
+import type { Prisma } from "@prisma/client";
 
 // GET — list all achievements with unlock status
 export async function GET() {
@@ -50,7 +51,7 @@ export async function GET() {
       if (!a.unlocked && a.progress && a.progress.current >= a.progress.target) {
         const bonusExp = 50;
 
-        const inserted = await prisma.$transaction(async (tx) => {
+        const inserted = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           const created = await tx.userAchievement.createMany({
             data: { userId: user.id, achievementId: a.id },
             skipDuplicates: true,

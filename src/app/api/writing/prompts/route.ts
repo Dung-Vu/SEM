@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateCustomPrompt } from "@/lib/writing-grader";
+import { getCurrentUser } from "@/lib/current-user";
+import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
 
 // GET /api/writing/prompts — List prompts with optional filters
 export async function GET(request: NextRequest) {
@@ -30,6 +32,21 @@ export async function GET(request: NextRequest) {
 // POST /api/writing/prompts — Generate a custom prompt via AI
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const rl = consumeRateLimit(rateLimitKeyFromRequest(request, user.id), {
+      bucket: "writing-prompts",
+      perMinute: 5,
+      perDay: 50,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfterSec: rl.retryAfterSec },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
     const { type, level, topic, focusSkill } = body as {
       type: string;
@@ -44,7 +61,6 @@ export async function POST(request: NextRequest) {
 
     const generated = await generateCustomPrompt({ type, level, topic, focusSkill });
 
-    // Save to DB
     const prompt = await prisma.writingPrompt.create({
       data: {
         title: generated.title,

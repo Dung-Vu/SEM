@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { isToday, isYesterday, getLocalDateKey, getLocalMonthInfo, getLocalStartOfDay, getLocalStartOfMonth } from "@/lib/streak";
 import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
+import type { Prisma } from "@prisma/client";
 
 export async function POST() {
   try {
@@ -12,7 +13,7 @@ export async function POST() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const current = await tx.user.findUnique({ where: { id: user.id } });
       if (!current) return { kind: "not_found" as const };
 

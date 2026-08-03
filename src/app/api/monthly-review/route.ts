@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
 import { getLocalMonthInfo } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     const { month, year } = getLocalMonthInfo();
 
     const expGain = 100;
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.monthlyReview.findUnique({
         where: { userId_month_year: { userId: user.id, month, year } },
       });

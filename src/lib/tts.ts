@@ -7,24 +7,92 @@ export interface TTSOptions {
   voice?: "en-US" | "en-GB" | "en-AU";
 }
 
-export function speak(text: string, options?: TTSOptions): void {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
+let voicesPromise: Promise<SpeechSynthesisVoice[]> | null = null;
+
+/**
+ * Returns the list of available speech synthesis voices. On Chrome and iOS
+ * Safari the list is loaded asynchronously after the page is ready, so we
+ * register a voiceschanged listener the first time and cache the result.
+ */
+function getVoices(): Promise<SpeechSynthesisVoice[]> {
+  if (typeof window === "undefined" || !window.speechSynthesis) {
+    return Promise.resolve([]);
+  }
+  if (voicesPromise) return voicesPromise;
+
+  voicesPromise = new Promise<SpeechSynthesisVoice[]>((resolve) => {
+    const synth = window.speechSynthesis;
+    const initial = synth.getVoices();
+    if (initial.length > 0) {
+      resolve(initial);
+      return;
+    }
+    let resolved = false;
+    const onVoices = () => {
+      const v = synth.getVoices();
+      if (v.length > 0 && !resolved) {
+        resolved = true;
+        synth.removeEventListener("voiceschanged", onVoices);
+        resolve(v);
+      }
+    };
+    synth.addEventListener("voiceschanged", onVoices);
+    // Safety timeout — some browsers never fire voiceschanged.
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        synth.removeEventListener("voiceschanged", onVoices);
+        resolve(synth.getVoices());
+      }
+    }, 1500);
+  });
+
+  return voicesPromise;
+}
+
+/**
+ * Returns a promise that resolves when the utterance ends (or errors out).
+ * Useful for callers that need to know when TTS is finished (e.g. to chain
+ * actions, or to clear a speaking indicator).
+ */
+export function speak(text: string, options?: TTSOptions): Promise<void> {
+  if (typeof window === "undefined" || !window.speechSynthesis) {
+    return Promise.resolve();
+  }
 
   // Stop any current speech
   stopSpeech();
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = options?.voice ?? "en-US";
-  utterance.rate = options?.rate ?? 0.9;
-  utterance.pitch = options?.pitch ?? 1.0;
+  return new Promise<void>((resolve) => {
+    const synth = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = options?.voice ?? "en-US";
+    utterance.rate = options?.rate ?? 0.9;
+    utterance.pitch = options?.pitch ?? 1.0;
 
-  // Try to find a matching voice
-  const voices = window.speechSynthesis.getVoices();
-  const lang = options?.voice ?? "en-US";
-  const match = voices.find((v) => v.lang.startsWith(lang));
-  if (match) utterance.voice = match;
+    let resolved = false;
+    const finish = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
 
-  window.speechSynthesis.speak(utterance);
+    utterance.onend = finish;
+    utterance.onerror = finish;
+
+    // Pick a matching voice once the list is available.
+    const lang = options?.voice ?? "en-US";
+    getVoices()
+      .then((voices) => {
+        const match = voices.find((v) => v.lang === lang) ||
+          voices.find((v) => v.lang.startsWith(lang));
+        if (match) utterance.voice = match;
+        synth.speak(utterance);
+      })
+      .catch(() => {
+        synth.speak(utterance);
+      });
+  });
 }
 
 export function stopSpeech(): void {

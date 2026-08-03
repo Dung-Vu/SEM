@@ -1,5 +1,20 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma, User } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+
+/**
+ * Local User type — minimal shape returned by getCurrentUser.
+ * Mirrors the Prisma User model fields consumed by callers.
+ */
+export interface User {
+  id: string;
+  username: string;
+  level: number;
+  exp: number;
+  streak: number;
+  lastCheckIn: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /**
  * getCurrentUser — centralized single-user lookup.
@@ -20,5 +35,5 @@ export async function getCurrentUser<T extends Prisma.UserSelect>(
     });
   }
 
-  return prisma.user.findFirst({ orderBy: { createdAt: "asc" } });
+  return prisma.user.findFirst({ orderBy: { createdAt: "asc" } }) as unknown as User | null;
 }

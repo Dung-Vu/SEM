@@ -4,6 +4,25 @@ import { getCurrentUser } from "@/lib/current-user";
 import { awardExp, getKingdomInfo } from "@/lib/exp";
 import { sendLevelUpNotification } from "@/lib/notifications/level-up";
 import { assertInternalRequest } from "@/lib/server-security";
+import type { Prisma } from "@prisma/client";
+
+// EXP source allowlist. Anything outside this set is rejected so a leaked
+// internal secret cannot be used to mint arbitrary EXP under arbitrary tags.
+const EXP_SOURCE_ALLOWLIST = new Set<string>([
+  "manual",
+  "writing_submit",
+  "writing_redraft",
+  "speaking_session",
+  "exam_complete",
+  "anki_review",
+  "quest_complete",
+  "auto_quest",
+  "level_up",
+  "admin_grant",
+  "test",
+]);
+
+const MAX_EXP_PER_REQUEST = 1000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +36,14 @@ export async function POST(request: NextRequest) {
       description?: string;
     };
 
-    if (!source || typeof amount !== "number" || amount <= 0) {
+    if (
+      typeof source !== "string" ||
+      !EXP_SOURCE_ALLOWLIST.has(source) ||
+      typeof amount !== "number" ||
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      amount > MAX_EXP_PER_REQUEST
+    ) {
       return NextResponse.json(
         { error: "Invalid source or amount" },
         { status: 400 }
@@ -29,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updated = await awardExp(tx, user.id, amount);
       await tx.activityLog.create({
         data: {

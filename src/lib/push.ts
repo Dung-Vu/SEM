@@ -2,12 +2,21 @@
 // Only call this from API routes (server-side only)
 import webPush from "web-push";
 
-const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY!;
+const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
 const VAPID_EMAIL = process.env.VAPID_EMAIL || "mailto:admin@bonstu.site";
 
+// Only configure VAPID details when both keys are present. `sendPushToSubscription`
+// guards on this and returns a clear error if push is not configured, instead of
+// crashing at module load time.
+let vapidConfigured = false;
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
   webPush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
+  vapidConfigured = true;
+}
+
+export function isPushConfigured(): boolean {
+  return vapidConfigured;
 }
 
 export interface PushPayload {
@@ -32,6 +41,10 @@ export async function sendPushToSubscription(
   },
   payload: PushPayload
 ): Promise<boolean | "expired"> {
+  if (!vapidConfigured) {
+    console.warn("Push not configured: set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY");
+    return false;
+  }
   try {
     await webPush.sendNotification(
       {
@@ -69,4 +82,3 @@ export async function sendPushToSubscriptions(
     })
   );
 }
-

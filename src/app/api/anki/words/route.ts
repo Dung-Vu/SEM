@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
 import { getLocalStartOfDay } from "@/lib/streak";
+import { Prisma } from "@prisma/client";
 
 // GET — List all words (or countToday)
 export async function GET(request: NextRequest) {
@@ -60,40 +61,62 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // Check if word already exists
-    const existing = await prisma.word.findUnique({ where: { english } });
-    if (existing) {
-      return NextResponse.json({ error: "Word already exists", word: existing }, { status: 409 });
+    // Cap SRS data sizes to prevent DoS via huge payloads.
+    const safeEnglish = english.slice(0, 200);
+    const safeVietnamese = vietnamese.slice(0, 200);
+    const safeDefinition = (definition?.trim() ?? "").slice(0, 1000);
+    const safeExample = (exampleSentence?.trim() ?? "").slice(0, 1000);
+    const safeTags = (tags ?? "").slice(0, 500);
+    const safeLevel = (level ?? "A1").slice(0, 8);
+
+    const expGain = 2;
+
+    // Atomic: word + SRS card + EXP must all succeed or none.
+    // Handles P2002 (unique word) race by returning 409 instead of 500.
+    let word;
+    try {
+      word = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const w = await tx.word.create({
+          data: {
+            english: safeEnglish,
+            vietnamese: safeVietnamese,
+            definition: safeDefinition,
+            exampleSentence: safeExample,
+            level: safeLevel,
+            tags: safeTags,
+          },
+        });
+
+        await tx.srsCard.create({
+          data: {
+            userId: user.id,
+            wordId: w.id,
+            intervalDays: 0,
+            easeFactor: 2.5,
+            nextReview: new Date(),
+            status: "new",
+          },
+        });
+
+        await awardExp(tx, user.id, expGain);
+
+        return w;
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const existing = await prisma.word.findUnique({ where: { english: safeEnglish } });
+        return NextResponse.json(
+          { error: "Word already exists", word: existing },
+          { status: 409 }
+        );
+      }
+      throw err;
     }
 
-    const word = await prisma.word.create({
-      data: {
-        english,
-        vietnamese,
-        definition: definition?.trim() ?? "",
-        exampleSentence: exampleSentence?.trim() ?? "",
-        level: level ?? "A1",
-        tags: tags ?? "",
-      },
-    });
-
-    // Auto-create SRS card
-    await prisma.srsCard.create({
-      data: {
-        userId: user.id,
-        wordId: word.id,
-        intervalDays: 0,
-        easeFactor: 2.5,
-        nextReview: new Date(),
-        status: "new",
-      },
-    });
-
-    // EXP for adding a word with transaction
-    const expGain = 2;
-    await awardExp(prisma, user.id, expGain);
-
-    // Auto-tick learn_10_words quest after ≥10 words added today
+    // Auto-tick learn_10_words quest after ≥10 words added today.
+    // Note: today's count is a global Word counter (not user-scoped), see Agent 1 find
+    // "Global words corrupt per-user activity semantics" — preserved here to avoid
+    // silently changing business logic; tracked separately for follow-up.
     let autoQuestExp = 0;
     const todayStart = getLocalStartOfDay();
     const todayWordCount = await prisma.word.count({
@@ -104,7 +127,6 @@ export async function POST(request: NextRequest) {
       autoQuestExp = await autoTickQuest(user.id, "learn_10_words");
     }
 
-    // Phase 14: log word added event
     void logEvent(user.id, "anki_word_added", "vocab", undefined, undefined, {
       word: word.english,
       level: word.level,

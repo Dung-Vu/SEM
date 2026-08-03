@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
 import { getLocalDateKey, getLocalStartOfDay } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 function getTodayString(): string {
   return getLocalDateKey();
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
     // Award EXP (25 for journal, bonus for 100+ words)
     const expGain = wordCount >= 100 ? 35 : 25;
     const todayStart = getLocalStartOfDay();
-    const awarded = await prisma.$transaction(async (tx) => {
+    const awarded = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const alreadyAwarded = await tx.activityLog.findFirst({
         where: { userId: user.id, source: "journal", createdAt: { gte: todayStart } },
       });

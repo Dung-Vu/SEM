@@ -1,9 +1,25 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
+import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
 
 // POST — AI fills word details (definition, example sentence, level)
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const rl = consumeRateLimit(rateLimitKeyFromRequest(request, user.id), {
+      bucket: "anki-ai-fill",
+      perMinute: 15,
+      perDay: 200,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfterSec: rl.retryAfterSec },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
     const { word } = body as { word: string };
 
@@ -11,9 +27,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Word required" }, { status: 400 });
     }
 
-    // Get AI configuration from settings
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // Cap input length to prevent OOM via huge payloads.
+    const safeWord = word.trim().slice(0, 200);
+    if (!safeWord) {
+      return NextResponse.json({ error: "Word required" }, { status: 400 });
+    }
 
     const baseUrl = process.env.AI_BASE_URL;
     const apiKey = process.env.AI_API_KEY;
@@ -44,7 +62,7 @@ Keep everything concise and helpful for a Vietnamese learner.`;
         model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Word: "${word.trim()}"` },
+          { role: "user", content: `Word: "${safeWord}"` },
         ],
         temperature: 0.3,
         max_tokens: 300,

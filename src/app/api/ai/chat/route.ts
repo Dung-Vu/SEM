@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { chatCompletion, generateSessionSummary, CONVERSATION_MODES, type ConversationMode } from "@/lib/ai-client";
+import { getCurrentUser } from "@/lib/current-user";
+import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -8,6 +10,27 @@ interface ChatMessage {
 
 export async function POST(request: Request) {
   try {
+    const user = await getCurrentUser();
+    const rl = consumeRateLimit(rateLimitKeyFromRequest(request, user?.id ?? null), {
+      bucket: "ai-chat",
+      // 20/min, 600/day. Generous for normal study, blocks runaway loops.
+      perMinute: 20,
+      perDay: 600,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfterSec: rl.retryAfterSec },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rl.retryAfterSec),
+            "X-RateLimit-Remaining-Minute": String(rl.remainingMinute),
+            "X-RateLimit-Remaining-Day": String(rl.remainingDay),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { action, messages, mode, durationMinutes } = body;
 

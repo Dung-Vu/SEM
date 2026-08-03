@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
+import type { Prisma } from "@prisma/client";
 
 const RESOURCE_STATUSES = new Set(["want", "in_progress", "done"]);
 
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
 
       // Award EXP when marking as done
       if (status === "done" && resource.status !== "done") {
-        const updated = await prisma.$transaction(async (tx) => {
+        const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           const [resourceUpdated] = await Promise.all([
             tx.resource.update({
             where: { id },

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { logEvent } from "@/lib/analytics";
 import { awardExp } from "@/lib/exp";
+import type { Prisma } from "@prisma/client";
 
 const DEFAULT_MILESTONES = [
   { key: "M01", title: "First Steps", description: "Complete your first Anki review session", targetType: "anki_sessions", targetValue: 1, rewardDesc: "Scholar's Badge", expReward: 100, order: 1 },
@@ -109,7 +110,7 @@ export async function POST() {
 
       if (!achieved) continue;
 
-      const inserted = await prisma.$transaction(async (tx) => {
+      const inserted = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const created = await tx.userMilestone.createMany({
           data: { userId, milestoneId: m.id, rewardClaimed: true },
           skipDuplicates: true,

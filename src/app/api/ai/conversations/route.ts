@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/current-user";
 import { logEvent } from "@/lib/analytics";
 import { processSessionEnd } from "@/lib/session-debrief";
 import { awardExp } from "@/lib/exp";
+import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
+import type { Prisma } from "@prisma/client";
 
 // GET — List all conversation sessions
 export async function GET() {
@@ -48,8 +50,27 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+    const rl = consumeRateLimit(rateLimitKeyFromRequest(request, user.id), {
+      bucket: "ai-conversations",
+      // A user can complete many sessions per day but should not be able to
+      // replay this endpoint to farm EXP.
+      perMinute: 5,
+      perDay: 100,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfterSec: rl.retryAfterSec },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rl.retryAfterSec),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
-    const { mode, title, duration, expGained, summary, messages } = body as {
+    const { mode, title, duration, summary, messages } = body as {
       mode: string;
       title: string;
       duration: number;
@@ -57,15 +78,30 @@ export async function POST(request: NextRequest) {
       summary: string;
       messages: { role: string; content: string }[];
     };
+    // Note: `expGained` is intentionally not read — we compute EXP server-side
+    // from the validated duration (see safeExp below) to prevent client fraud.
+    void (body as { expGained?: number }).expGained;
 
-    const safeExp = Math.max(0, Math.min(500, Math.round(Number(expGained) || 0)));
-    const session = await prisma.$transaction(async (tx) => {
+    // Cap volume to prevent DB bloat / DoS via huge payloads.
+    if (Array.isArray(messages) && messages.length > 500) {
+      return NextResponse.json({ error: "Too many messages" }, { status: 413 });
+    }
+    if (typeof summary === "string" && summary.length > 8000) {
+      return NextResponse.json({ error: "Summary too long" }, { status: 413 });
+    }
+
+    // Compute EXP server-side from validated duration so the client cannot
+    // inflate it. We keep a small cap (15/min) with a 500 ceiling, matching
+    // the previous maximum.
+    const safeDuration = Math.max(0, Math.min(60 * 60 * 4, Math.round(Number(duration) || 0)));
+    const safeExp = Math.min(500, Math.round(safeDuration / 60) * 15);
+    const session = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.conversationSession.create({
         data: {
           userId: user.id,
           mode,
           title: title || `${mode} conversation`,
-          duration: duration || 0,
+          duration: safeDuration,
           expGained: safeExp,
           summary: summary || "",
           messages: {
@@ -85,7 +121,7 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             source: "ai_conversation",
             amount: safeExp,
-            description: `AI Conversation (${title || mode}, ${Math.floor((duration || 0) / 60)} min)`,
+            description: `AI Conversation (${title || mode}, ${Math.floor(safeDuration / 60)} min)`,
           },
         });
       }
@@ -99,11 +135,11 @@ export async function POST(request: NextRequest) {
       "speak_session_end",
       "speaking",
       undefined,
-      duration || 0,
+      safeDuration,
       {
         mode,
         message_count: messages.length,
-        duration_sec: duration || 0,
+        duration_sec: safeDuration,
       }
     );
 
@@ -112,7 +148,7 @@ export async function POST(request: NextRequest) {
     try {
       debrief = await processSessionEnd(user.id, session.id, {
         mode,
-        durationSec: duration || 0,
+        durationSec: safeDuration,
         messages,
       });
     } catch (err) {

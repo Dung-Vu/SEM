@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { gradeSubmission, getPreviousScore, checkPersonalBest, syncWritingToMemory } from "@/lib/writing-grader";
 import { logEvent } from "@/lib/analytics";
 import type { GrammarError } from "@/lib/writing-grader";
+import type { InputJsonValue } from "@prisma/client/runtime/library";
 
 // POST /api/writing/submit — Submit writing → grade → save → integrations
 export async function POST(request: NextRequest) {
@@ -60,11 +61,11 @@ export async function POST(request: NextRequest) {
         coherenceScore: gradingResult.coherenceScore,
         taskScore: gradingResult.taskScore,
         aiFeedback: gradingResult.aiFeedback,
-        grammarErrors: gradingResult.grammarErrors as unknown as import("@prisma/client").Prisma.InputJsonValue,
-        vocabSuggestions: gradingResult.vocabSuggestions as unknown as import("@prisma/client").Prisma.InputJsonValue,
+        grammarErrors: gradingResult.grammarErrors as unknown as InputJsonValue,
+        vocabSuggestions: gradingResult.vocabSuggestions as unknown as InputJsonValue,
         rewriteSample: gradingResult.rewriteSample || null,
-        strengths: gradingResult.strengths as unknown as import("@prisma/client").Prisma.InputJsonValue,
-        improvements: gradingResult.improvements as unknown as import("@prisma/client").Prisma.InputJsonValue,
+        strengths: gradingResult.strengths as unknown as InputJsonValue,
+        improvements: gradingResult.improvements as unknown as InputJsonValue,
         improvementVsLast: gradingResult.improvementVsLast,
       },
     });

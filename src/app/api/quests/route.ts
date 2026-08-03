@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
 import { getLocalDateKey, getLocalDayOfWeek, getLocalWeekInfo } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 function getTodayString(): string {
   return getLocalDateKey();
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     const today = getTodayString();
 
-    const awarded = await prisma.$transaction(async (tx) => {
+    const awarded = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updated = await tx.questProgress.updateMany({
         where: { userId: user.id, questKey, date: today, completed: false },
         data: { completed: true, completedAt: new Date() },

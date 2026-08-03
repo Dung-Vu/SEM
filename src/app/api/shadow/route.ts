@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
 import { getLocalDateKey } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 // GET — List shadowing sessions
 export async function GET() {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     // EXP: 2 EXP per minute
     const expGain = Math.max(5, Math.floor(minutes * 2));
     const description = `${source}|${minutes}|${rating}`;
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.activityLog.create({
         data: {
           userId: user.id,

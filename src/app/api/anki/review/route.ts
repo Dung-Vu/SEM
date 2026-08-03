@@ -5,6 +5,7 @@ import { calculateSrs } from "@/lib/srs";
 import { awardExp } from "@/lib/exp";
 import { logEvent } from "@/lib/analytics";
 import { getLocalStartOfDay } from "@/lib/streak";
+import type { Prisma } from "@prisma/client";
 
 // GET — Get cards due for review today + new cards
 export async function GET(request: Request) {
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
     }, rating);
 
     const expGain = rating >= 3 ? 5 : 2;
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.srsCard.update({
         where: { id: cardId },
         data: {
