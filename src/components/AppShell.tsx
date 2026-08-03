@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useId, useRef } from "react";
 import Link from "next/link";
 import { haptic } from "@/lib/haptics";
 import {
@@ -123,6 +123,9 @@ function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const [showMore, setShowMore] = useState(false);
+    const moreTriggerRef = useRef<HTMLButtonElement>(null);
+    const drawerTitleId = useId();
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
 
     const prefetchPage = useCallback(
         (href: string) => {
@@ -133,6 +136,31 @@ function BottomNav() {
 
     const isMoreActive = MORE_ITEMS.some((item) => item.href === pathname);
 
+    // Escape closes the drawer and returns focus to the trigger.
+    useEffect(() => {
+        if (!showMore) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setShowMore(false);
+                requestAnimationFrame(() => moreTriggerRef.current?.focus());
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [showMore]);
+
+    // On open, move focus into the drawer (close button is safest).
+    useEffect(() => {
+        if (showMore) {
+            requestAnimationFrame(() => closeButtonRef.current?.focus());
+        }
+    }, [showMore]);
+
+    const closeMore = () => {
+        setShowMore(false);
+        requestAnimationFrame(() => moreTriggerRef.current?.focus());
+    };
+
     return (
         <>
             {/* More Drawer */}
@@ -140,11 +168,18 @@ function BottomNav() {
                 <>
                     <div
                         className="more-drawer-backdrop"
-                        onClick={() => setShowMore(false)}
+                        onClick={closeMore}
+                        aria-hidden="true"
                         style={{ zIndex: 1000 }}
                     />
-                    <div className="more-drawer" style={{ zIndex: 1001 }}>
-                        <div className="more-drawer-handle" />
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={drawerTitleId}
+                        className="more-drawer"
+                        style={{ zIndex: 1001 }}
+                    >
+                        <div className="more-drawer-handle" aria-hidden="true" />
                         <div
                             style={{
                                 display: "flex",
@@ -154,6 +189,7 @@ function BottomNav() {
                             }}
                         >
                             <p
+                                id={drawerTitleId}
                                 style={{
                                     fontFamily: "var(--font-display)",
                                     fontSize: "13px",
@@ -167,7 +203,10 @@ function BottomNav() {
                                 More Features
                             </p>
                             <button
-                                onClick={() => setShowMore(false)}
+                                ref={closeButtonRef}
+                                type="button"
+                                onClick={closeMore}
+                                aria-label="Close more features"
                                 style={{
                                     background: "var(--bg-elevated)",
                                     border: "1px solid var(--border-subtle)",
@@ -181,7 +220,7 @@ function BottomNav() {
                                     color: "var(--text-muted)",
                                 }}
                             >
-                                <X size={14} />
+                                <X size={14} aria-hidden="true" />
                             </button>
                         </div>
                         <div
@@ -198,7 +237,11 @@ function BottomNav() {
                                     <Link
                                         key={item.href}
                                         href={item.href}
-                                        onClick={() => setShowMore(false)}
+                                        onClick={closeMore}
+                                        aria-label={item.label}
+                                        aria-current={
+                                            isActive ? "page" : undefined
+                                        }
                                         style={{
                                             display: "flex",
                                             flexDirection: "column",
@@ -238,6 +281,7 @@ function BottomNav() {
                                                         : item.color
                                                 }
                                                 strokeWidth={2}
+                                                aria-hidden="true"
                                             />
                                         </div>
                                         <span
@@ -262,7 +306,7 @@ function BottomNav() {
             )}
 
             {/* Bottom Nav Bar — Floating Pill */}
-            <nav className="bottom-nav">
+            <nav className="bottom-nav" aria-label="Primary">
                 <div className="bottom-nav-pill">
                     {MAIN_TABS.map((tab) => {
                         const isActive = pathname === tab.href;
@@ -275,13 +319,15 @@ function BottomNav() {
                                 onTouchStart={() => prefetchPage(tab.href)}
                                 onMouseEnter={() => prefetchPage(tab.href)}
                                 onClick={() => haptic("light")}
+                                aria-current={isActive ? "page" : undefined}
+                                aria-label={tab.label}
                                 style={{
                                     color: isActive
                                         ? "var(--gold)"
                                         : "var(--text-muted)",
                                 }}
                             >
-                                <span className="nav-tab-icon">
+                                <span className="nav-tab-icon" aria-hidden="true">
                                     <Icon
                                         size={22}
                                         strokeWidth={isActive ? 2.5 : 2}
@@ -290,14 +336,18 @@ function BottomNav() {
                                 <span className="nav-tab-label">
                                     {tab.label}
                                 </span>
-                                <span className="nav-tab-dot" />
+                                <span className="nav-tab-dot" aria-hidden="true" />
                             </Link>
                         );
                     })}
 
                     {/* More Tab */}
                     <button
+                        ref={moreTriggerRef}
+                        type="button"
                         onClick={() => setShowMore((v) => !v)}
+                        aria-haspopup="dialog"
+                        aria-expanded={showMore}
                         className={`nav-tab${isMoreActive || showMore ? " nav-tab-active" : ""}`}
                         style={{
                             color:
@@ -306,14 +356,14 @@ function BottomNav() {
                                     : "var(--text-muted)",
                         }}
                     >
-                        <span className="nav-tab-icon">
+                        <span className="nav-tab-icon" aria-hidden="true">
                             <LayoutGrid
                                 size={22}
                                 strokeWidth={isMoreActive || showMore ? 2.5 : 2}
                             />
                         </span>
                         <span className="nav-tab-label">More</span>
-                        <span className="nav-tab-dot" />
+                        <span className="nav-tab-dot" aria-hidden="true" />
                     </button>
                 </div>
             </nav>

@@ -664,6 +664,7 @@ export default function SpeakPage() {
                         startSession(randomKey);
                     }}
                     className="animate-fade-in-up"
+                    aria-label="Start a random conversation scenario"
                     style={{
                         width: "100%",
                         padding: "14px",
@@ -679,7 +680,7 @@ export default function SpeakPage() {
                         marginBottom: "16px",
                     }}
                 >
-                    <span style={{ fontSize: "18px" }}>🎲</span>
+                    <span aria-hidden="true" style={{ fontSize: "18px" }}>🎲</span>
                     <span
                         style={{
                             fontFamily: "var(--font-display)",
@@ -1176,9 +1177,10 @@ export default function SpeakPage() {
                                     alignSelf: "flex-start",
                                     marginTop: "2px",
                                 }}
+                                aria-label={`Listen to AI response out loud`}
                                 title="Listen to AI response"
                             >
-                                🔊
+                                <span aria-hidden="true">🔊</span>
                             </button>
                         )}
                     </div>

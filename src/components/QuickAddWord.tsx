@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 export function QuickAddWord() {
     const pathname = usePathname();
@@ -11,10 +12,16 @@ export function QuickAddWord() {
     const [word, setWord] = useState("");
     const [vietnamese, setVietnamese] = useState("");
     const [saving, setSaving] = useState(false);
-    const [toast, setToast] = useState<string | null>(null);
     const [todayCount, setTodayCount] = useState(0);
     const [kbOffset, setKbOffset] = useState(0);
+    const [error, setError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const { showToast } = useToast();
+    const titleId = useId();
+    const wordInputId = useId();
+    const vnInputId = useId();
+    const errorId = useId();
 
     useEffect(() => {
         if (open && inputRef.current) inputRef.current.focus();
@@ -30,7 +37,6 @@ export function QuickAddWord() {
         if (!vv) return;
 
         const onResize = () => {
-            // Keyboard height = full window height - visual viewport height
             const offset = Math.max(0, window.innerHeight - vv.height);
             setKbOffset(offset);
         };
@@ -38,6 +44,19 @@ export function QuickAddWord() {
         vv.addEventListener("resize", onResize);
         onResize();
         return () => vv.removeEventListener("resize", onResize);
+    }, [open]);
+
+    // Escape closes the modal and returns focus to the trigger.
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setOpen(false);
+                triggerRef.current?.focus();
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
     }, [open]);
 
     useEffect(() => {
@@ -49,9 +68,17 @@ export function QuickAddWord() {
             .catch(() => {});
     }, []);
 
+    const close = () => {
+        setOpen(false);
+        setError(null);
+        // Restore focus after the modal is removed.
+        requestAnimationFrame(() => triggerRef.current?.focus());
+    };
+
     const handleSave = async () => {
         if (!word.trim()) return;
         setSaving(true);
+        setError(null);
         try {
             const res = await fetch("/api/anki/words", {
                 method: "POST",
@@ -63,21 +90,22 @@ export function QuickAddWord() {
                 }),
             });
             const data = await res.json();
-            if (data.word) {
-                setTodayCount((prev) => prev + 1);
-                setToast(
-                    `"${word}" added! +2 EXP · Today: ${todayCount + 1}/10`,
-                );
+            if (data.success && data.word) {
+                const newCount = todayCount + 1;
+                setTodayCount(newCount);
+                showToast(`"${word}" added! +2 EXP · Today: ${newCount}/10`, "success");
                 setWord("");
                 setVietnamese("");
-                setOpen(false);
+                close();
             } else {
-                setToast(data.error || "Error");
+                const msg = data.error || "Could not add word";
+                setError(msg);
+                showToast(msg, "error");
             }
-            setTimeout(() => setToast(null), 3000);
         } catch {
-            setToast("Error");
-            setTimeout(() => setToast(null), 3000);
+            const msg = "Network error";
+            setError(msg);
+            showToast(msg, "error");
         } finally {
             setSaving(false);
         }
@@ -85,43 +113,14 @@ export function QuickAddWord() {
 
     return (
         <>
-            {/* Toast */}
-            {toast && (
-                <div
-                    style={{
-                        position: "fixed",
-                        top: "calc(env(safe-area-inset-top, 0px) + 12px)",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        zIndex: 10000,
-                        maxWidth: "360px",
-                        width: "90%",
-                    }}
-                    className="animate-scale-in"
-                >
-                    <div
-                        className="glass-card"
-                        style={{
-                            padding: "12px 16px",
-                            borderColor: "rgba(99,102,241,0.3)",
-                        }}
-                    >
-                        <p
-                            style={{
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                textAlign: "center",
-                            }}
-                        >
-                            {toast}
-                        </p>
-                    </div>
-                </div>
-            )}
-
             {/* FAB */}
             <button
+                ref={triggerRef}
+                type="button"
                 onClick={() => setOpen(true)}
+                aria-label="Quick add a new word to your Anki deck"
+                aria-haspopup="dialog"
+                aria-expanded={open}
                 style={{
                     position: "fixed",
                     bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
@@ -134,24 +133,24 @@ export function QuickAddWord() {
                     background:
                         "linear-gradient(135deg, var(--cyan), var(--violet-bright))",
                     color: "var(--bg-void)",
-                    fontSize: "18px",
                     cursor: "pointer",
                     boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                 }}
-                title="Quick Add Word"
             >
                 <Plus
                     size={20}
                     strokeWidth={2.5}
                     style={{ color: "var(--bg-void)" }}
+                    aria-hidden="true"
                 />
             </button>
             {/* Today counter badge */}
             {todayCount > 0 && !hideBadge && (
                 <div
+                    aria-hidden="true"
                     style={{
                         position: "fixed",
                         bottom: "calc(126px + env(safe-area-inset-bottom, 0px))",
@@ -181,7 +180,8 @@ export function QuickAddWord() {
                 <>
                     {/* Backdrop */}
                     <div
-                        onClick={() => setOpen(false)}
+                        onClick={close}
+                        aria-hidden="true"
                         style={{
                             position: "fixed",
                             inset: 0,
@@ -193,6 +193,9 @@ export function QuickAddWord() {
                     />
                     {/* Sheet — tracks keyboard via bottom offset */}
                     <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={titleId}
                         className="glass-card animate-scale-in"
                         style={{
                             position: "fixed",
@@ -222,6 +225,7 @@ export function QuickAddWord() {
                             }}
                         >
                             <h3
+                                id={titleId}
                                 style={{
                                     fontSize: "16px",
                                     fontWeight: 700,
@@ -231,7 +235,9 @@ export function QuickAddWord() {
                                 Quick Add Word
                             </h3>
                             <button
-                                onClick={() => setOpen(false)}
+                                type="button"
+                                onClick={close}
+                                aria-label="Close quick add dialog"
                                 style={{
                                     background: "none",
                                     border: "none",
@@ -240,21 +246,41 @@ export function QuickAddWord() {
                                     cursor: "pointer",
                                 }}
                             >
-                                ✕
+                                <span aria-hidden="true">✕</span>
                             </button>
                         </div>
 
+                        <label
+                            htmlFor={wordInputId}
+                            style={{
+                                display: "block",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                color: "var(--text-muted)",
+                                marginBottom: "4px",
+                            }}
+                        >
+                            English word
+                        </label>
                         <input
+                            id={wordInputId}
                             ref={inputRef}
                             type="text"
                             value={word}
-                            onChange={(e) => setWord(e.target.value)}
-                            placeholder="English word..."
+                            onChange={(e) => {
+                                setWord(e.target.value);
+                                if (error) setError(null);
+                            }}
+                            placeholder="e.g. ephemeral"
+                            aria-invalid={error ? "true" : undefined}
+                            aria-describedby={error ? errorId : undefined}
+                            required
+                            maxLength={200}
                             style={{
                                 width: "100%",
                                 padding: "12px",
                                 background: "var(--bg-raised)",
-                                border: "1px solid rgba(255,255,255,0.07)",
+                                border: `1px solid ${error ? "var(--ruby)" : "rgba(255,255,255,0.07)"}`,
                                 borderRadius: "10px",
                                 color: "var(--text-primary)",
                                 fontSize: "16px",
@@ -269,11 +295,25 @@ export function QuickAddWord() {
                             }}
                         />
 
+                        <label
+                            htmlFor={vnInputId}
+                            style={{
+                                display: "block",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                color: "var(--text-muted)",
+                                marginBottom: "4px",
+                            }}
+                        >
+                            Vietnamese meaning (optional)
+                        </label>
                         <input
+                            id={vnInputId}
                             type="text"
                             value={vietnamese}
                             onChange={(e) => setVietnamese(e.target.value)}
                             placeholder="Nghĩa tiếng Việt (optional)"
+                            maxLength={200}
                             style={{
                                 width: "100%",
                                 padding: "12px",
@@ -293,9 +333,25 @@ export function QuickAddWord() {
                             }}
                         />
 
+                        {error && (
+                            <p
+                                id={errorId}
+                                role="alert"
+                                style={{
+                                    fontSize: 12,
+                                    color: "var(--ruby)",
+                                    margin: "0 0 8px",
+                                }}
+                            >
+                                {error}
+                            </p>
+                        )}
+
                         <button
+                            type="button"
                             onClick={handleSave}
                             disabled={saving || !word.trim()}
+                            aria-disabled={saving || !word.trim()}
                             className="btn-primary"
                             style={{ width: "100%", fontSize: "15px" }}
                         >

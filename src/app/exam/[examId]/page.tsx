@@ -47,7 +47,7 @@ export default function ExamPage() {
     const [listeningPassages, setListeningPassages] = useState<
         ListeningPassage[]
     >([]);
-    const [, setTimeLimit] = useState(60);
+    const [timeLimit, setTimeLimit] = useState(60);
     const [currentIdx, setCurrentIdx] = useState(0);
     const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
     const answersRef = useRef<Record<string, AnswerState>>({});
@@ -63,32 +63,81 @@ export default function ExamPage() {
     const timeExpiredRef = useRef(false);
     const [timeExpired, setTimeExpired] = useState(false);
 
-    // Load exam data from sessionStorage
+    // Load exam data from sessionStorage, with a localStorage fallback so a
+    // tab reload or browser crash mid-exam does not lose the user's answers.
     useEffect(() => {
-        const stored = sessionStorage.getItem(`exam_${examId}`);
+        const sessionKey = `exam_${examId}`;
+        const stored =
+            sessionStorage.getItem(sessionKey) ||
+            localStorage.getItem(sessionKey);
         if (stored) {
-            const data = JSON.parse(stored);
-            setQuestions(data.questions);
-            setListeningPassages(data.listeningPassages || []);
-            setTimeLimit(data.timeLimit);
-            setTimeLeft(data.timeLimit * 60);
-            // Init answer state
-            const init: Record<string, AnswerState> = {};
-            for (const q of data.questions) {
-                init[q.id] = {
-                    answer: null,
-                    flagged: false,
-                    timeStart: Date.now(),
-                };
+            try {
+                const data = JSON.parse(stored);
+                setQuestions(data.questions || []);
+                setListeningPassages(data.listeningPassages || []);
+                setTimeLimit(data.timeLimit || 60);
+                setTimeLeft(data.timeLimit * 60);
+                const init: Record<string, AnswerState> =
+                    data.answers && Object.keys(data.answers).length > 0
+                        ? data.answers
+                        : {};
+                if (Object.keys(init).length === 0) {
+                    for (const q of data.questions || []) {
+                        init[q.id] = {
+                            answer: null,
+                            flagged: false,
+                            timeStart: Date.now(),
+                        };
+                    }
+                }
+                setAnswers(init);
+                answersRef.current = init;
+                setLoading(false);
+            } catch {
+                router.push("/exam");
             }
-            setAnswers(init);
-            answersRef.current = init;
-            setLoading(false);
         } else {
-            // No data — redirect back
             router.push("/exam");
         }
     }, [examId, router]);
+
+    // Persist answers + timer to localStorage so a reload mid-exam recovers
+    // the user's progress. Writes are debounced (every 1s) to avoid losing
+    // the last few seconds of typing.
+    useEffect(() => {
+        if (loading || questions.length === 0) return;
+        const handle = window.setTimeout(() => {
+            try {
+                const sessionKey = `exam_${examId}`;
+                localStorage.setItem(
+                    sessionKey,
+                    JSON.stringify({
+                        questions,
+                        listeningPassages,
+                        timeLimit,
+                        timeLeft,
+                        answers,
+                    }),
+                );
+            } catch {
+                // localStorage may be full or unavailable (private mode); ignore.
+            }
+        }, 1000);
+        return () => window.clearTimeout(handle);
+    }, [loading, questions, listeningPassages, timeLimit, timeLeft, answers, examId]);
+
+    // Clear the persisted draft once the exam is submitted so the next visit
+    // doesn't accidentally resume a finished exam.
+    useEffect(() => {
+        if (submitting) {
+            try {
+                localStorage.removeItem(`exam_${examId}`);
+                sessionStorage.removeItem(`exam_${examId}`);
+            } catch {
+                // ignore
+            }
+        }
+    }, [submitting, examId]);
 
     // Timer countdown
     // Timer countdown — sets a flag when expired, actual submit happens via separate useEffect

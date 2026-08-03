@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useId } from "react";
 import { createPortal } from "react-dom";
 import {
     Shield,
@@ -11,6 +11,7 @@ import {
     Trophy,
 } from "lucide-react";
 import { haptic } from "@/lib/haptics";
+import { useToast } from "@/components/ui/Toast";
 
 interface Quest {
     key: string;
@@ -37,11 +38,13 @@ export default function QuestsPage() {
     });
     const [progress, setProgress] = useState({ completed: 0, total: 0 });
     const [loading, setLoading] = useState(true);
-    const [toast, setToast] = useState<string | null>(null);
     const [confirming, setConfirming] = useState<Quest | null>(null);
     const [expParticles, setExpParticles] = useState<
         Array<{ id: number; x: number; y: number; amount: number }>
     >([]);
+    const { showToast } = useToast();
+    const confirmTitleId = useId();
+    const confirmCancelRef = useRef<HTMLButtonElement>(null);
 
     const triggerQuestParticle = (amount: number) => {
         const id = Date.now();
@@ -78,19 +81,28 @@ export default function QuestsPage() {
         fetchQuests();
     }, [fetchQuests]);
 
+    // Escape closes the confirm sheet.
+    useEffect(() => {
+        if (!confirming) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setConfirming(null);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [confirming]);
+
+    useEffect(() => {
+        if (confirming) {
+            requestAnimationFrame(() => confirmCancelRef.current?.focus());
+        }
+    }, [confirming]);
+
     const handleComplete = async (questKey: string) => {
+        const target = confirming;
         setConfirming(null);
+        if (!target) return;
 
-        // 17.2: Optimistic — mark complete immediately
-        const q = [...quests.main, ...quests.side, ...quests.weekly].find(
-            (q) => q.key === questKey,
-        );
-
-        // Save snapshot for rollback
-        const prevQuests = { ...quests };
-        const prevProgress = { ...progress };
-
-        // Optimistic update — grey out quest and bump progress
+        // Optimistic update via functional setter to avoid stale closure.
         const markComplete = (list: Quest[]) =>
             list.map((item) =>
                 item.key === questKey
@@ -111,9 +123,8 @@ export default function QuestsPage() {
             total: prev.total,
         }));
 
-        // Haptic + EXP particle immediately
         haptic("success");
-        if (q) triggerQuestParticle(q.expReward);
+        triggerQuestParticle(target.expReward);
 
         try {
             const res = await fetch("/api/quests", {
@@ -124,22 +135,45 @@ export default function QuestsPage() {
             const data = await res.json();
 
             if (data.success) {
-                setToast(data.message);
-                // Re-fetch to sync with server truth
+                showToast(data.message, "success");
+                // Re-fetch to sync with server truth.
                 await fetchQuests();
             } else {
-                // Rollback — quest wasn't actually completable
-                setQuests(prevQuests);
-                setProgress(prevProgress);
-                setToast(data.message || "Already completed");
+                // Rollback via functional setters — reads fresh state, not stale closure.
+                const unmark = (list: Quest[]) =>
+                    list.map((item) =>
+                        item.key === questKey
+                            ? { ...item, completed: false, completedAt: null }
+                            : item,
+                    );
+                setQuests((prev) => ({
+                    main: unmark(prev.main),
+                    side: unmark(prev.side),
+                    weekly: unmark(prev.weekly),
+                }));
+                setProgress((prev) => ({
+                    completed: Math.max(0, prev.completed - 1),
+                    total: prev.total,
+                }));
+                showToast(data.message || "Already completed", "warning");
             }
-            setTimeout(() => setToast(null), 3000);
         } catch {
-            // Rollback on network error
-            setQuests(prevQuests);
-            setProgress(prevProgress);
-            setToast("Error completing quest");
-            setTimeout(() => setToast(null), 3000);
+            const unmark = (list: Quest[]) =>
+                list.map((item) =>
+                    item.key === questKey
+                        ? { ...item, completed: false, completedAt: null }
+                        : item,
+                );
+            setQuests((prev) => ({
+                main: unmark(prev.main),
+                side: unmark(prev.side),
+                weekly: unmark(prev.weekly),
+            }));
+            setProgress((prev) => ({
+                completed: Math.max(0, prev.completed - 1),
+                total: prev.total,
+            }));
+            showToast("Error completing quest", "error");
         }
     };
 
@@ -149,6 +183,7 @@ export default function QuestsPage() {
                 <div
                     className="skeleton"
                     style={{ height: 140, borderRadius: 20, marginBottom: 12 }}
+                    aria-hidden="true"
                 />
                 {[1, 2, 3, 4].map((i) => (
                     <div
@@ -159,6 +194,7 @@ export default function QuestsPage() {
                             borderRadius: 14,
                             marginBottom: 8,
                         }}
+                        aria-hidden="true"
                     />
                 ))}
             </div>
@@ -169,7 +205,6 @@ export default function QuestsPage() {
         progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
     const allDone = progress.completed === progress.total && progress.total > 0;
 
-    // SVG circle ring
     const r = 42;
     const cx = 52;
     const cy = 52;
@@ -181,7 +216,7 @@ export default function QuestsPage() {
             {/* EXP Particles */}
             {typeof document !== "undefined" &&
                 createPortal(
-                    <>
+                    <div aria-hidden="true">
                         {expParticles.map((p) => (
                             <div
                                 key={p.id}
@@ -191,33 +226,6 @@ export default function QuestsPage() {
                                 +{p.amount} EXP ✨
                             </div>
                         ))}
-                    </>,
-                    document.body,
-                )}
-
-            {/* Toast */}
-            {toast &&
-                typeof document !== "undefined" &&
-                createPortal(
-                    <div className="toast animate-scale-in">
-                        <div
-                            className="glass-card"
-                            style={{
-                                padding: "13px 18px",
-                                borderColor: "rgba(245,200,66,0.3)",
-                            }}
-                        >
-                            <p
-                                style={{
-                                    fontSize: "14px",
-                                    fontWeight: 600,
-                                    textAlign: "center",
-                                    fontFamily: "var(--font-body)",
-                                }}
-                            >
-                                {toast}
-                            </p>
-                        </div>
                     </div>,
                     document.body,
                 )}
@@ -230,12 +238,20 @@ export default function QuestsPage() {
                         <div
                             className="more-drawer-backdrop"
                             onClick={() => setConfirming(null)}
+                            aria-hidden="true"
                             style={{ zIndex: 1000 }}
                         />
-                        <div className="more-drawer" style={{ zIndex: 1001 }}>
-                            <div className="more-drawer-handle" />
+                        <div
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby={confirmTitleId}
+                            className="more-drawer"
+                            style={{ zIndex: 1001 }}
+                        >
+                            <div className="more-drawer-handle" aria-hidden="true" />
                             <div style={{ marginBottom: "16px" }}>
                                 <p
+                                    id={confirmTitleId}
                                     style={{
                                         fontFamily: "var(--font-display)",
                                         fontSize: "18px",
@@ -243,7 +259,8 @@ export default function QuestsPage() {
                                         marginBottom: "6px",
                                     }}
                                 >
-                                    {confirming.icon} {confirming.name}
+                                    <span aria-hidden="true">{confirming.icon} </span>
+                                    {confirming.name}
                                 </p>
                                 <p
                                     style={{
@@ -251,10 +268,11 @@ export default function QuestsPage() {
                                         color: "var(--text-secondary)",
                                         fontFamily: "var(--font-body)",
                                         lineHeight: 1.5,
+                                        margin: 0,
                                     }}
                                 >
                                     Bạn đã thực sự hoàn thành quest này chưa?
-                                    Hãy trung thực với bản thân. 🙏
+                                    Hãy trung thực với bản thân.
                                 </p>
                             </div>
                             <div
@@ -265,9 +283,9 @@ export default function QuestsPage() {
                                 }}
                             >
                                 <button
-                                    onClick={() =>
-                                        handleComplete(confirming.key)
-                                    }
+                                    type="button"
+                                    onClick={() => handleComplete(confirming.key)}
+                                    aria-label={`Confirm complete quest ${confirming.name}`}
                                     style={{
                                         width: "100%",
                                         minHeight: 48,
@@ -285,7 +303,10 @@ export default function QuestsPage() {
                                     Xác nhận!
                                 </button>
                                 <button
+                                    ref={confirmCancelRef}
+                                    type="button"
                                     onClick={() => setConfirming(null)}
+                                    aria-label="Cancel and return"
                                     style={{
                                         width: "100%",
                                         minHeight: 48,
@@ -299,7 +320,7 @@ export default function QuestsPage() {
                                         fontFamily: "var(--font-body)",
                                     }}
                                 >
-                                    ✗ Chưa xong
+                                    <span aria-hidden="true">✗ </span>Chưa xong
                                 </button>
                             </div>
                         </div>
@@ -323,8 +344,8 @@ export default function QuestsPage() {
                     overflow: "hidden",
                 }}
             >
-                {/* Glow background */}
                 <div
+                    aria-hidden="true"
                     style={{
                         position: "absolute",
                         top: -30,
@@ -337,7 +358,6 @@ export default function QuestsPage() {
                     }}
                 />
 
-                {/* Circular Progress Ring */}
                 <div
                     style={{
                         flexShrink: 0,
@@ -349,9 +369,10 @@ export default function QuestsPage() {
                     <svg
                         width="104"
                         height="104"
+                        role="img"
+                        aria-label={`Daily progress ${Math.round(progressPct)}%`}
                         style={{ transform: "rotate(-90deg)" }}
                     >
-                        {/* Track */}
                         <circle
                             cx={cx}
                             cy={cy}
@@ -360,7 +381,6 @@ export default function QuestsPage() {
                             stroke="var(--bg-raised)"
                             strokeWidth="6"
                         />
-                        {/* Progress */}
                         <circle
                             cx={cx}
                             cy={cy}
@@ -377,6 +397,7 @@ export default function QuestsPage() {
                         />
                     </svg>
                     <div
+                        aria-hidden="true"
                         style={{
                             position: "absolute",
                             inset: 0,
@@ -453,7 +474,6 @@ export default function QuestsPage() {
                 </div>
             </div>
 
-            {/* Main Quests */}
             <QuestSection
                 title="MAIN QUESTS"
                 icon={Shield}
@@ -463,7 +483,6 @@ export default function QuestsPage() {
                 delay="stagger-1"
             />
 
-            {/* Side Quests */}
             <QuestSection
                 title="SIDE QUESTS"
                 icon={ScrollText}
@@ -473,7 +492,6 @@ export default function QuestsPage() {
                 delay="stagger-2"
             />
 
-            {/* Weekly */}
             {quests.weekly.length > 0 && (
                 <QuestSection
                     title="WEEKLY CHALLENGE"
@@ -485,7 +503,6 @@ export default function QuestsPage() {
                 />
             )}
 
-            {/* Empty state */}
             {quests.main.length === 0 && quests.side.length === 0 && (
                 <div style={{ textAlign: "center", padding: "48px 16px" }}>
                     <div
@@ -500,6 +517,7 @@ export default function QuestsPage() {
                             justifyContent: "center",
                             margin: "0 auto 16px",
                         }}
+                        aria-hidden="true"
                     >
                         <Trophy size={32} color="var(--emerald)" />
                     </div>
@@ -526,7 +544,6 @@ export default function QuestsPage() {
                 </div>
             )}
 
-            {/* Activity link */}
             <div
                 className="stagger-4 animate-fade-in-up"
                 style={{ marginTop: "12px" }}
@@ -543,7 +560,7 @@ export default function QuestsPage() {
                         gap: "8px",
                     }}
                 >
-                    <Activity size={15} color="var(--text-muted)" />
+                    <Activity size={15} color="var(--text-muted)" aria-hidden="true" />
                     View Activity Log
                 </a>
             </div>
@@ -576,7 +593,6 @@ function QuestSection({
             className={`animate-fade-in-up ${delay}`}
             style={{ marginBottom: "14px" }}
         >
-            {/* Section header */}
             <div
                 style={{
                     display: "flex",
@@ -586,7 +602,7 @@ function QuestSection({
                     paddingLeft: "2px",
                 }}
             >
-                <Icon size={14} color={accent} strokeWidth={2.5} />
+                <Icon size={14} color={accent} strokeWidth={2.5} aria-hidden="true" />
                 <h3
                     style={{
                         margin: 0,
@@ -608,8 +624,15 @@ function QuestSection({
                 {quests.map((quest) => (
                     <button
                         key={quest.key}
+                        type="button"
                         onClick={() => !quest.completed && onComplete(quest)}
                         disabled={quest.completed}
+                        aria-disabled={quest.completed}
+                        aria-label={
+                            quest.completed
+                                ? `${quest.name} — completed, ${quest.expReward} EXP earned`
+                                : `Mark ${quest.name} complete, ${quest.expReward} EXP`
+                        }
                         className="quest-item"
                         style={{
                             display: "flex",
@@ -631,8 +654,8 @@ function QuestSection({
                             transition: "all 0.2s var(--ease-spring)",
                         }}
                     >
-                        {/* Checkbox */}
                         <div
+                            aria-hidden="true"
                             style={{
                                 width: 28,
                                 height: 28,
@@ -659,7 +682,6 @@ function QuestSection({
                             )}
                         </div>
 
-                        {/* Content */}
                         <div
                             style={{ flex: 1, minWidth: 0, textAlign: "left" }}
                         >
@@ -671,7 +693,10 @@ function QuestSection({
                                     marginBottom: "2px",
                                 }}
                             >
-                                <span style={{ fontSize: "15px" }}>
+                                <span
+                                    aria-hidden="true"
+                                    style={{ fontSize: "15px" }}
+                                >
                                     {quest.icon}
                                 </span>
                                 <span
@@ -703,8 +728,8 @@ function QuestSection({
                             </p>
                         </div>
 
-                        {/* EXP Badge */}
                         <span
+                            aria-hidden="true"
                             style={{
                                 fontSize: "11px",
                                 fontWeight: 700,

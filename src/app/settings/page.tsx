@@ -1210,6 +1210,7 @@ export default function SettingsPage() {
                 {settings.notificationsEnabled && (
                     <div>
                         <label
+                            htmlFor="settings-reminder-time"
                             style={{
                                 fontSize: "11px",
                                 color: "var(--text-muted)",
@@ -1223,6 +1224,7 @@ export default function SettingsPage() {
                             Reminder time
                         </label>
                         <input
+                            id="settings-reminder-time"
                             type="time"
                             value={settings.reminderTime}
                             onChange={(e) =>
@@ -1231,6 +1233,7 @@ export default function SettingsPage() {
                                     reminderTime: e.target.value,
                                 })
                             }
+                            aria-label="Reminder time"
                             style={{
                                 padding: "10px 12px",
                                 background: "var(--bg-raised)",

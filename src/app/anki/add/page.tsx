@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import {
     Plus,
 } from "lucide-react";
@@ -19,6 +19,12 @@ export default function AddWordPage() {
     const [aiFilling, setAiFilling] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [addedCount, setAddedCount] = useState(0);
+    const englishId = useId();
+    const vietnameseId = useId();
+    const definitionId = useId();
+    const exampleId = useId();
+    const levelGroupId = useId();
+    const tagsId = useId();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -186,6 +192,7 @@ export default function AddWordPage() {
                     {/* English */}
                     <div style={{ marginBottom: "14px" }}>
                         <label
+                            htmlFor={englishId}
                             style={{
                                 fontSize: "12px",
                                 fontWeight: 600,
@@ -194,15 +201,19 @@ export default function AddWordPage() {
                                 marginBottom: "6px",
                             }}
                         >
-                            🇬🇧 English *
+                            <span aria-hidden="true">🇬🇧 </span>English (required)
                         </label>
                         <input
+                            id={englishId}
                             type="text"
                             value={form.english}
                             onChange={(e) =>
                                 setForm({ ...form, english: e.target.value })
                             }
                             placeholder="e.g. accomplish"
+                            required
+                            aria-required="true"
+                            maxLength={200}
                             style={{
                                 width: "100%",
                                 padding: "12px",
@@ -240,6 +251,7 @@ export default function AddWordPage() {
                     {/* Vietnamese */}
                     <div style={{ marginBottom: "14px" }}>
                         <label
+                            htmlFor={vietnameseId}
                             style={{
                                 fontSize: "12px",
                                 fontWeight: 600,
@@ -248,15 +260,19 @@ export default function AddWordPage() {
                                 marginBottom: "6px",
                             }}
                         >
-                            🇻🇳 Vietnamese *
+                            <span aria-hidden="true">🇻🇳 </span>Vietnamese (required)
                         </label>
                         <input
+                            id={vietnameseId}
                             type="text"
                             value={form.vietnamese}
                             onChange={(e) =>
                                 setForm({ ...form, vietnamese: e.target.value })
                             }
                             placeholder="e.g. hoàn thành"
+                            required
+                            aria-required="true"
+                            maxLength={200}
                             style={{
                                 width: "100%",
                                 padding: "12px",
@@ -274,6 +290,7 @@ export default function AddWordPage() {
                     {/* Definition */}
                     <div style={{ marginBottom: "14px" }}>
                         <label
+                            htmlFor={definitionId}
                             style={{
                                 fontSize: "12px",
                                 fontWeight: 600,
@@ -285,12 +302,14 @@ export default function AddWordPage() {
                             Definition
                         </label>
                         <textarea
+                            id={definitionId}
                             value={form.definition}
                             onChange={(e) =>
                                 setForm({ ...form, definition: e.target.value })
                             }
                             placeholder="to finish something successfully"
                             rows={2}
+                            maxLength={2000}
                             style={{
                                 width: "100%",
                                 padding: "12px",
@@ -309,6 +328,7 @@ export default function AddWordPage() {
                     {/* Example */}
                     <div style={{ marginBottom: "14px" }}>
                         <label
+                            htmlFor={exampleId}
                             style={{
                                 fontSize: "12px",
                                 fontWeight: 600,
@@ -320,6 +340,7 @@ export default function AddWordPage() {
                             Example Sentence
                         </label>
                         <textarea
+                            id={exampleId}
                             value={form.exampleSentence}
                             onChange={(e) =>
                                 setForm({
@@ -329,6 +350,7 @@ export default function AddWordPage() {
                             }
                             placeholder="She accomplished her goal of learning English."
                             rows={2}
+                            maxLength={2000}
                             style={{
                                 width: "100%",
                                 padding: "12px",
@@ -348,6 +370,7 @@ export default function AddWordPage() {
                     <div style={{ display: "flex", gap: "10px" }}>
                         <div style={{ flex: 1 }}>
                             <label
+                                id={levelGroupId}
                                 style={{
                                     fontSize: "12px",
                                     fontWeight: 600,
@@ -359,6 +382,8 @@ export default function AddWordPage() {
                                 Level
                             </label>
                             <div
+                                role="radiogroup"
+                                aria-labelledby={levelGroupId}
                                 style={{
                                     display: "flex",
                                     gap: "4px",
@@ -369,6 +394,9 @@ export default function AddWordPage() {
                                     <button
                                         key={lv}
                                         type="button"
+                                        role="radio"
+                                        aria-checked={form.level === lv}
+                                        aria-label={`Level ${lv}`}
                                         onClick={() =>
                                             setForm({ ...form, level: lv })
                                         }
@@ -402,6 +430,7 @@ export default function AddWordPage() {
                     {/* Tags */}
                     <div style={{ marginTop: "14px" }}>
                         <label
+                            htmlFor={tagsId}
                             style={{
                                 fontSize: "12px",
                                 fontWeight: 600,
@@ -413,12 +442,14 @@ export default function AddWordPage() {
                             Tags
                         </label>
                         <input
+                            id={tagsId}
                             type="text"
                             value={form.tags}
                             onChange={(e) =>
                                 setForm({ ...form, tags: e.target.value })
                             }
                             placeholder="verb, business, daily (comma separated)"
+                            maxLength={200}
                             style={{
                                 width: "100%",
                                 padding: "12px",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -127,11 +127,21 @@ export default function OnboardingWizard({
     const [selectedLevel, setSelectedLevel] = useState("A2");
     const [studyTime, setStudyTime] = useState(30);
     const [weakness, setWeakness] = useState<WeaknessKey>("vocabulary");
+    const titleId = useId();
+    const subtitleId = useId();
+    const ctaRef = useRef<HTMLButtonElement>(null);
 
     const current = STEPS[step];
     const isLast = step === STEPS.length - 1;
     const Icon = current.icon;
     const progressPct = ((step + 1) / STEPS.length) * 100;
+
+    // Move focus to the primary CTA on each step so keyboard users can advance
+    // without reaching for Tab. The wizard is a focused flow, not a free-form
+    // document, so this matches WAI-ARIA modal dialog patterns.
+    useEffect(() => {
+        requestAnimationFrame(() => ctaRef.current?.focus());
+    }, [step]);
 
     const handleComplete = () => {
         const newCardsPerDay: Record<string, number> = {
@@ -184,6 +194,10 @@ export default function OnboardingWizard({
 
     return createPortal(
         <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={subtitleId}
             style={{
                 position: "fixed",
                 inset: 0,
@@ -197,6 +211,7 @@ export default function OnboardingWizard({
         >
             {/* Ambient gradient bg */}
             <div
+                aria-hidden="true"
                 style={{
                     position: "absolute",
                     inset: 0,
@@ -286,6 +301,7 @@ export default function OnboardingWizard({
 
                 {/* Step counter */}
                 <p
+                    aria-live="polite"
                     style={{
                         fontFamily: "var(--font-mono)",
                         fontSize: "10px",
@@ -296,7 +312,7 @@ export default function OnboardingWizard({
                         letterSpacing: "0.08em",
                     }}
                 >
-                    {step + 1} / {STEPS.length}
+                    Step {step + 1} of {STEPS.length}
                 </p>
             </div>
 
@@ -362,6 +378,7 @@ export default function OnboardingWizard({
 
                         {/* Subtitle */}
                         <p
+                            id={subtitleId}
                             style={{
                                 fontFamily: "var(--font-display)",
                                 fontSize: "9px",
@@ -378,6 +395,7 @@ export default function OnboardingWizard({
 
                         {/* Title */}
                         <h2
+                            id={titleId}
                             style={{
                                 fontFamily: "var(--font-display)",
                                 fontSize: "24px",
@@ -452,7 +470,10 @@ export default function OnboardingWizard({
                 }}
             >
                 <button
+                    ref={ctaRef}
+                    type="button"
                     onClick={goNext}
+                    aria-label={isLast ? "Begin your journey" : step === 0 ? "Begin onboarding" : "Continue to next step"}
                     style={{
                         width: "100%",
                         minHeight: 50,
@@ -477,7 +498,7 @@ export default function OnboardingWizard({
                     ) : (
                         <>
                             {step === 0 ? "Begin Quest" : "Continue"}
-                            <ChevronRight size={18} strokeWidth={2.5} />
+                            <ChevronRight size={18} strokeWidth={2.5} aria-hidden="true" />
                         </>
                     )}
                 </button>

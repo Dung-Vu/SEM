@@ -62,6 +62,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             {children}
             {/* Toast Container */}
             <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="false"
+                aria-relevant="additions"
                 style={{
                     position: "fixed",
                     top: "calc(env(safe-area-inset-top, 0px) + 12px)",
@@ -79,6 +83,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {toasts.map((t) => (
                     <div
                         key={t.id}
+                        role={t.type === "error" ? "alert" : "status"}
                         style={{
                             display: "flex",
                             alignItems: "center",
@@ -95,6 +100,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                         }}
                     >
                         <span
+                            aria-hidden="true"
                             style={{
                                 fontSize: 13,
                                 fontWeight: 800,

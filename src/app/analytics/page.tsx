@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Brain, Loader2 } from "lucide-react";
-import { BookOpen, Mic2, PenLine, Headphones } from "lucide-react";
+import { Brain, Loader2, BookOpen, Mic2, PenLine, Headphones } from "lucide-react";
 import { addLocalDays, getLocalDateKey, getLocalDayOfWeek } from "@/lib/streak";
 import {
     OverallScoreBanner,

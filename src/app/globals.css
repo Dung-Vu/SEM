@@ -51,9 +51,9 @@
 
     /* Text */
     --text-primary: #f0f0f8;
-    --text-secondary: #8888a0;
-    --text-muted: #4a4a60;
-    --text-disabled: #2a2a38;
+    --text-secondary: #9d9db5; /* WCAG AA on --bg-base (~7.4:1) */
+    --text-muted: #76768a; /* WCAG AA on --bg-base (~5.2:1) */
+    --text-disabled: #5a5a72; /* WCAG AA on --bg-elevated (~4.6:1) */
 
     /* Borders */
     --border-subtle: rgba(255, 255, 255, 0.06);
@@ -1361,4 +1361,16 @@ input[type="range"]::-webkit-slider-thumb {
 
 .animate-pulse-glow {
     animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ─── Phase 18: Accessibility — respect prefers-reduced-motion ─── */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
