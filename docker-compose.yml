@@ -1,23 +1,39 @@
-# ============================================
-# English Quest — Docker Compose
-# Next.js App (using host PostgreSQL)
-# ============================================
-
 services:
-    # Next.js Application
-    app:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        container_name: eq-app
-        restart: unless-stopped
-        ports:
-            - "3001:3000"
-        env_file:
-            - .env
-        environment:
-            DATABASE_URL: postgresql://postgres:130501@host.docker.internal:5432/sem
-            NODE_ENV: production
-            PRISMA_QUERY_ENGINE_LIBRARY: /app/node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
-        extra_hosts:
-            - "host.docker.internal:host-gateway"
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eq-app
+    restart: unless-stopped
+    ports:
+      - "3003:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:130501@postgres:5432/sem
+      NODE_ENV: production
+      INTERNAL_API_SECRET: aaa0ec737ae30efe2ecbe02bb1cb9089
+      CRON_SECRET: 4336dde2915a334851b66710060c6324
+      PRISMA_QUERY_ENGINE_LIBRARY: /app/node_modules/.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sem-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "130501"
+      POSTGRES_DB: sem
+    volumes:
+      - sem-pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sem"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sem-pgdata:

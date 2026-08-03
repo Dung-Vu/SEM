@@ -473,7 +473,7 @@ export default function OnboardingWizard({
                     ref={ctaRef}
                     type="button"
                     onClick={goNext}
-                    aria-label={isLast ? "Begin your journey" : step === 0 ? "Begin onboarding" : "Continue to next step"}
+                    aria-label={isLast ? "Begin your journey" : step === 0 ? "Begin Quest" : "Continue to next step"}
                     style={{
                         width: "100%",
                         minHeight: 50,

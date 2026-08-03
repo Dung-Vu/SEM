@@ -9,6 +9,7 @@ import {
 } from "@/lib/push";
 import { assertInternalRequest } from "@/lib/server-security";
 import { consumeRateLimit, rateLimitKeyFromRequest } from "@/lib/rate-limit";
+import { capturePushFailure } from "@/lib/sentry-helpers";
 import { createHash } from "crypto";
 
 const MAX_FIELD_LENGTH = 200;
@@ -145,6 +146,7 @@ export async function POST(req: NextRequest) {
       const ok = await sendPushToSubscription(sub, safe);
       if (ok === true) sent++;
       else if (ok === "expired") failed.push(sub.id);
+      else capturePushFailure(sub.endpoint, "web-push send returned false");
     }
 
     // Clean up only subscriptions confirmed expired by the push provider.
@@ -260,7 +262,8 @@ export async function GET(req: NextRequest) {
   for (const sub of allowedSubs) {
     const result = await sendPushToSubscription(sub, payload);
     if (result === true) sent++;
-    if (result === "expired") expired.push(sub.id);
+    else if (result === "expired") expired.push(sub.id);
+    else capturePushFailure(sub.endpoint, "web-push send returned false");
   }
   if (expired.length > 0) {
     await prisma.pushSubscription.deleteMany({ where: { id: { in: expired } } });

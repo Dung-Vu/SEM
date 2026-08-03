@@ -1,0 +1,36 @@
+name: Accessibility
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  axe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      # The accessibility scan requires the production app to be running.
+      - name: Start app and run axe
+        run: |
+          npm run start &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3000/ > /dev/null; then
+              npm run a11y
+              exit $?
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Upload axe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-report
+          path: a11y-report.json

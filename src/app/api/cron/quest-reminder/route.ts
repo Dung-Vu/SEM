@@ -1,9 +1,7 @@
 // /api/cron/quest-reminder
-//
-// Vercel Cron schedule: "0 13 * * *" (13:00 UTC ≈ 20:00 Asia/Ho_Chi_Minh)
-// Triggers: src/lib/notifications/quest-reminder.ts → checkAndSendQuestReminder
-//
-// Auth: Bearer ${CRON_SECRET}  (or ?secret= / x-cron-secret)
+// Trigger schedule: daily at 13:00 UTC (20:00 Asia/Ho_Chi_Minh).
+// Idempotency: notification log cooldown and daily per-user send limits suppress duplicates.
+// Expected runtime: <60 seconds for the current single-user deployment.
 
 import { NextRequest, NextResponse } from "next/server";
 import { assertInternalRequest } from "@/lib/server-security";

@@ -1,9 +1,7 @@
 // /api/cron/ai-insight
-//
-// Vercel Cron schedule: "0 2 * * 3" (02:00 UTC Wednesday ≈ 09:00 ICT Wednesday)
-// Triggers: src/lib/notifications/ai-insight.ts → checkAndSendInsightAlert
-//
-// Auth: Bearer ${CRON_SECRET}  (or ?secret= / x-cron-secret)
+// Trigger schedule: Wednesday at 02:00 UTC (09:00 Asia/Ho_Chi_Minh).
+// Idempotency: notification log cooldown and daily per-user send limits suppress duplicates.
+// Expected runtime: <120 seconds for the current single-user deployment.
 
 import { NextRequest, NextResponse } from "next/server";
 import { assertInternalRequest } from "@/lib/server-security";

@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 /**
  * Assert that a request is authorized as an internal/cron caller.
  *
- * The shared secret is read from (in order): `INTERNAL_API_SECRET`, `CRON_SECRET`.
+ * Accepts EITHER `INTERNAL_API_SECRET` OR `CRON_SECRET` — both are checked
+ * independently so cron handlers and admin handlers can use distinct secrets.
  *
  * Accepted credential transports:
  *  - `Authorization: Bearer <secret>`
@@ -12,12 +13,21 @@ import { NextResponse } from "next/server";
  *
  * Returns a `NextResponse` to short-circuit with when the request is not allowed,
  * or `null` when the caller has supplied a valid credential.
+ *
+ * Status codes:
+ *  - 503 when neither secret env var is configured (security-positive refusal).
+ *  - 401 when a secret IS configured but the supplied credential doesn't match.
  */
 export function assertInternalRequest(
   request: { headers: Headers; url?: string } | Request
 ): NextResponse | null {
-  const secret = process.env.INTERNAL_API_SECRET || process.env.CRON_SECRET;
-  if (!secret) {
+  const internalSecret = process.env.INTERNAL_API_SECRET;
+  const cronSecret = process.env.CRON_SECRET;
+  const allowedSecrets = [internalSecret, cronSecret].filter(
+    (s): s is string => typeof s === "string" && s.length > 0
+  );
+
+  if (allowedSecrets.length === 0) {
     return NextResponse.json(
       { error: "Internal API secret is not configured" },
       { status: 503 }
@@ -50,7 +60,7 @@ export function assertInternalRequest(
   }
 
   const supplied = bearer || headerSecret || querySecret;
-  if (supplied !== secret) {
+  if (!supplied || !allowedSecrets.includes(supplied)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

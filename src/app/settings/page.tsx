@@ -176,6 +176,9 @@ function ToggleSwitch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
     return (
         <button
             onClick={onToggle}
+            role="switch"
+            aria-checked={on}
+            aria-label="Toggle setting"
             style={{
                 width: 48,
                 height: 26,
@@ -1234,6 +1237,7 @@ export default function SettingsPage() {
                                 })
                             }
                             aria-label="Reminder time"
+                            title="Daily reminder time"
                             style={{
                                 padding: "10px 12px",
                                 background: "var(--bg-raised)",

@@ -24,7 +24,7 @@ export function SkillsBlock({ statItems }: Props) {
                     marginBottom: "14px",
                 }}
             >
-                <h3
+                <h2
                     style={{
                         margin: 0,
                         fontFamily: "var(--font-display)",
@@ -34,7 +34,7 @@ export function SkillsBlock({ statItems }: Props) {
                     }}
                 >
                     Skills
-                </h3>
+                </h2>
                 <a
                     href="/stats/weekly"
                     style={{

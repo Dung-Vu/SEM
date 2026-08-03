@@ -1,10 +1,7 @@
 // /api/cron/weekly-report
-//
-// Vercel Cron schedule: "0 1 * * 1" (01:00 UTC Monday ≈ 08:00 ICT Monday)
-// Triggers: src/lib/notifications/weekly-report-notif.ts → checkAndSendWeeklyReport
-// (also generates the weekly report row via generateWeeklyReport()).
-//
-// Auth: Bearer ${CRON_SECRET}  (or ?secret= / x-cron-secret)
+// Trigger schedule: Monday at 01:00 UTC (08:00 Asia/Ho_Chi_Minh).
+// Idempotency: the per-user/week/year report unique key and notification cooldown suppress duplicates.
+// Expected runtime: <120 seconds for the current single-user deployment.
 
 import { NextRequest, NextResponse } from "next/server";
 import { assertInternalRequest } from "@/lib/server-security";

@@ -41,6 +41,9 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
     <button
       onClick={onToggle}
+      role="switch"
+      aria-checked={on}
+      aria-label="Toggle setting"
       style={{
         width: 44,
         height: 24,
@@ -127,15 +130,19 @@ function ToggleRow({
 function TimeInput({
   value,
   onChange,
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
+  ariaLabel: string;
 }) {
   return (
     <input
       type="time"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      aria-label={ariaLabel}
+      title={ariaLabel}
       style={{
         background: "var(--bg-raised)",
         border: "1px solid rgba(255,255,255,0.08)",
@@ -254,6 +261,7 @@ export function NotificationSettingsCard() {
               <TimeInput
                 value={s.ankiReminderTime}
                 onChange={(v) => patch({ ankiReminderTime: v })}
+                ariaLabel="Anki reminder time"
               />
             </div>
           }
@@ -278,6 +286,7 @@ export function NotificationSettingsCard() {
               <TimeInput
                 value={s.questReminderTime}
                 onChange={(v) => patch({ questReminderTime: v })}
+                ariaLabel="Quest reminder time"
               />
             </div>
           }
@@ -441,6 +450,7 @@ export function NotificationSettingsCard() {
               onChange={(e) =>
                 patch({ quietHoursStart: Number(e.target.value) })
               }
+              aria-label="Quiet hours start"
               style={{
                 background: "var(--bg-raised)",
                 border: "1px solid rgba(255,255,255,0.08)",
@@ -481,6 +491,7 @@ export function NotificationSettingsCard() {
               onChange={(e) =>
                 patch({ quietHoursEnd: Number(e.target.value) })
               }
+              aria-label="Quiet hours end"
               style={{
                 background: "var(--bg-raised)",
                 border: "1px solid rgba(255,255,255,0.08)",

@@ -18,6 +18,7 @@
  *  - Vercel Edge runtime does not support module-level state across requests
  *    the same way; this helper is intended for "nodejs" runtime routes.
  */
+import { captureRateLimitHit } from "@/lib/sentry-helpers";
 
 const MAX_KEYS = 10_000;
 
@@ -88,6 +89,7 @@ export function consumeRateLimit(key: string, config: RateLimitConfig): RateLimi
   }
 
   if (bucket.minute >= config.perMinute) {
+    captureRateLimitHit(config.bucket, key, `${config.bucket}:minute`);
     return {
       allowed: false,
       remainingMinute: 0,
@@ -96,6 +98,7 @@ export function consumeRateLimit(key: string, config: RateLimitConfig): RateLimi
     };
   }
   if (bucket.day >= config.perDay) {
+    captureRateLimitHit(config.bucket, key, `${config.bucket}:day`);
     return {
       allowed: false,
       remainingMinute: Math.max(0, config.perMinute - bucket.minute),

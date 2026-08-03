@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-08-03T11:13:17.792Z",
+  "baseUrl": "http://localhost:3003",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21aa"
+  ],
+  "routes": [
+    {
+      "route": "/",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    },
+    {
+      "route": "/anki",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    },
+    {
+      "route": "/anki/add",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    },
+    {
+      "route": "/quests",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    },
+    {
+      "route": "/speak",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    },
+    {
+      "route": "/exam/cm_test",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    },
+    {
+      "route": "/settings",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    },
+    {
+      "route": "/analytics",
+      "status": 200,
+      "violations": [],
+      "blockingViolationCount": 0
+    }
+  ],
+  "blockingViolationCount": 0
+}

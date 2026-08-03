@@ -734,6 +734,7 @@ export default function AnkiPage() {
                                     speak(card.english, { rate: 0.85 });
                                     setTimeout(() => setSpeaking(false), 3000);
                                 }}
+                                aria-label={speaking ? "Stop pronunciation" : `Listen to ${card.english}`}
                                 style={{
                                     background: speaking
                                         ? "rgba(34,211,238,0.15)"
@@ -903,6 +904,7 @@ export default function AnkiPage() {
                                 onClick={() =>
                                     speak(card.exampleSentence, { rate: 0.8 })
                                 }
+                                aria-label="Listen to example sentence"
                                 style={{
                                     background: "var(--bg-raised)",
                                     border: "1px solid var(--border-subtle)",

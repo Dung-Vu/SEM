@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders = [
   {
@@ -71,4 +72,41 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// `withSentryConfig` is a no-op when `SENTRY_AUTH_TOKEN` is empty — the
+// webpack plugin only tries to upload source maps when an auth token is
+// present. The SDK itself is tree-shaken from the client bundle when no DSN
+// is configured (see the `if (dsn)` guard in sentry.client.config.ts), and
+// we additionally strip its debug logging from the build via the
+// `webpack.treeshake.removeDebugLogging` option below. All existing headers
+// / CSP are preserved because we wrap the already-built `nextConfig` object,
+// not the other way around.
+export default withSentryConfig(nextConfig, {
+  // Optional: only required for source-map upload during `next build`. Leave
+  // blank in local dev — the build still succeeds, the plugin just skips
+  // upload. The token / org / project are read from the same env vars at
+  // runtime if they're not passed here.
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  // Disable route manifest injection in this app — the small bundle savings
+  // outweigh the route-grouped transaction names, and the manifest exposes
+  // our internal API surface to the client bundle.
+  routeManifestInjection: false,
+  webpack: {
+    // Tree-shake the SDK's debug logger out of the production bundle. Has
+    // no effect on Sentry Logs (only on the SDK's own console-based
+    // logger). This is the modern replacement for the deprecated top-level
+    // `disableLogger` flag.
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+  sourcemaps: {
+    // Once Sentry has uploaded the maps, remove them from `.next/` so the
+    // standalone Docker image doesn't ship readable source. Default is true
+    // for the SDK, but we restate it to be explicit.
+    deleteSourcemapsAfterUpload: true,
+  },
+});

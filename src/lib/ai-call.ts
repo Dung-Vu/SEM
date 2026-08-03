@@ -11,6 +11,7 @@
 //  1. Auditing/cost-by-route
 //  2. Centralize retry/timeout policy
 //  3. Swap models per-route freely (e.g. qwen-turbo for insights)
+import { captureAiError, startAiSpan } from "@/lib/sentry-helpers";
 
 export interface AICallMessage {
   role: "system" | "user" | "assistant";
@@ -153,6 +154,12 @@ export async function aiCall(opts: AICallOptions): Promise<AICallResult> {
     const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
     const start = Date.now();
 
+    const fetchSpan = startAiSpan("ai.http.fetch", {
+      "ai.model": model,
+      "ai.attempt": String(attempt),
+      ...(route ? { "ai.route": route } : {}),
+    });
+
     try {
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
@@ -238,6 +245,8 @@ export async function aiCall(opts: AICallOptions): Promise<AICallResult> {
         { ...meta, route, userId, ok: false, error: lastError.message },
         messages
       );
+    } finally {
+      fetchSpan?.end();
     }
 
     // Retry? Only if we have attempts left.
@@ -249,6 +258,12 @@ export async function aiCall(opts: AICallOptions): Promise<AICallResult> {
     break;
   }
 
+  // All retries exhausted — surface the final failure to Sentry if configured.
+  captureAiError("ai-call", lastError ?? new Error("AI call failed after retries"), {
+    model,
+    attempt: String(attempt),
+    ...(route ? { route } : {}),
+  });
   throw lastError ?? new Error("AI call failed after retries");
 }
 
@@ -332,6 +347,14 @@ export function aiCallStream(opts: AICallOptions): ReadableStream<Uint8Array> {
           controller.error(new Error("Client aborted"));
           return;
         }
+
+        const fetchSpan = startAiSpan("ai.http.fetch", {
+          "ai.model": model,
+          "ai.attempt": String(attempt),
+          "ai.stream": "1",
+          ...(route ? { "ai.route": route } : {}),
+        });
+
         try {
           startedAt = Date.now();
           const res = await attemptStream(attempt, controller2.signal);
@@ -411,6 +434,8 @@ export function aiCallStream(opts: AICallOptions): ReadableStream<Uint8Array> {
             },
             messages
           );
+        } finally {
+          fetchSpan?.end();
         }
 
         if (attempt < retries) {
@@ -422,6 +447,16 @@ export function aiCallStream(opts: AICallOptions): ReadableStream<Uint8Array> {
       }
 
       if (!upstream || !upstream.body) {
+        captureAiError(
+          "ai-call",
+          lastError ?? new Error("AI stream failed after retries"),
+          {
+            model,
+            attempt: String(attempt),
+            stream: "1",
+            ...(route ? { route } : {}),
+          }
+        );
         controller.error(lastError ?? new Error("AI stream failed after retries"));
         return;
       }

@@ -14,7 +14,7 @@
     /* Gold — primary accent: EXP, level, streak */
     --gold: #f5a623;
     --gold-bright: #ffbf4d;
-    --gold-muted: #a0681a;
+    --gold-muted: #b87a26; /* WCAG AA on --bg-elevated (~4.7:1) */
     --gold-dim: #3d2a0a;
     --gold-glow: rgba(245, 166, 35, 0.25);
 
@@ -26,9 +26,9 @@
     --cyan-glow: rgba(0, 212, 255, 0.2);
 
     /* Purple — rare, milestone */
-    --violet: #7c3aed;
-    --violet-bright: #9b5ff5;
-    --violet-muted: #5a28b0;
+    --violet: #a879ff; /* WCAG AA on --bg-raised (~6.2:1) */
+    --violet-bright: #c4a5ff; /* WCAG AA on --bg-raised (~9:1) */
+    --violet-muted: #6e3acc;
     --violet-dim: #1e0a3c;
     --violet-glow: rgba(124, 58, 237, 0.2);
 
@@ -39,8 +39,8 @@
     --emerald-dim: #052e16;
 
     /* Ruby — danger, error */
-    --ruby: #ef4444;
-    --ruby-bright: #f87171;
+    --ruby: #ff6b6b; /* WCAG AA on --bg-raised (~4.6:1) */
+    --ruby-bright: #ff8b8b;
     --ruby-muted: #dc2626;
     --ruby-dim: #300a0a;
 
@@ -51,9 +51,9 @@
 
     /* Text */
     --text-primary: #f0f0f8;
-    --text-secondary: #9d9db5; /* WCAG AA on --bg-base (~7.4:1) */
-    --text-muted: #76768a; /* WCAG AA on --bg-base (~5.2:1) */
-    --text-disabled: #5a5a72; /* WCAG AA on --bg-elevated (~4.6:1) */
+    --text-secondary: #c5c5dd; /* WCAG AA on --bg-base (~11:1) */
+    --text-muted: #a5a5bc; /* WCAG AA on --bg-base (~8:1) — meets 4.5:1 on elevated surfaces */
+    --text-disabled: #7e7e98; /* WCAG AA on --bg-base (~6:1) */
 
     /* Borders */
     --border-subtle: rgba(255, 255, 255, 0.06);

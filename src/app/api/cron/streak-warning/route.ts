@@ -1,9 +1,7 @@
 // /api/cron/streak-warning
-//
-// Vercel Cron schedule: "0 14 * * *" (14:00 UTC ≈ 21:00 Asia/Ho_Chi_Minh)
-// Triggers: src/lib/notifications/streak-warning.ts → checkAndSendStreakWarning
-//
-// Auth: Bearer ${CRON_SECRET}  (or ?secret= / x-cron-secret)
+// Trigger schedule: daily at 14:00 UTC (21:00 Asia/Ho_Chi_Minh).
+// Idempotency: notification log cooldown and daily per-user send limits suppress duplicates.
+// Expected runtime: <60 seconds for the current single-user deployment.
 
 import { NextRequest, NextResponse } from "next/server";
 import { assertInternalRequest } from "@/lib/server-security";
