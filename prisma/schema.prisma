@@ -108,6 +108,9 @@ model ActivityLog {
   description String   @default("")
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, source])
 }
 
 model Word {
@@ -139,6 +142,8 @@ model SrsCard {
   word         Word     @relation(fields: [wordId], references: [id])
 
   @@unique([userId, wordId])
+  @@index([userId, nextReview])
+  @@index([userId, status])
 }
 
 model ReviewLog {
@@ -176,6 +181,7 @@ model QuestProgress {
   user        User      @relation(fields: [userId], references: [id])
 
   @@unique([userId, questKey, date])
+  @@index([userId, date])
 }
 
 model JournalEntry {
@@ -192,6 +198,7 @@ model JournalEntry {
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, date])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model Resource {
@@ -207,6 +214,9 @@ model Resource {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([userId, category])
 }
 
 model MonthlyReview {
@@ -235,6 +245,8 @@ model ConversationSession {
   createdAt DateTime              @default(now())
   messages  ConversationMessage[]
   user      User                  @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model ConversationMessage {
@@ -244,6 +256,8 @@ model ConversationMessage {
   content        String
   createdAt      DateTime            @default(now())
   conversation   ConversationSession @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
 }
 
 model ConversationPrompt {
@@ -375,6 +389,7 @@ model InsightCache {
 
   @@index([userId, type])
   @@index([userId, type, createdAt(sort: Desc)])
+  @@index([expiresAt])
 }
 
 model WeeklyReport {
@@ -606,6 +621,7 @@ model NotificationLog {
   user      User      @relation(fields: [userId], references: [id])
 
   @@index([userId, type, sentAt(sort: Desc)])
+  @@index([userId, sentAt(sort: Desc)])
 }
 
 model NotificationSetting {
